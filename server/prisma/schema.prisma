@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProductUnit {
+  KG
+  ML_G
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  language      String   @default("Português (BR)")
+  role          String   @default("operador")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  emailVerificationToken   String?   @unique
+  emailVerificationExpires DateTime?
+  resetPasswordToken       String?   @unique
+  resetPasswordExpires     DateTime?
+
+  sessions      Session[]
+  accounts      Account[]
+  Products      Product[]
+  AuditLogs     AuditLogs[]
+  Notifications Notification[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?
+  ipAddress String?
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+}
+
+model Product {
+  productId      String      @id @default(uuid())
+  sku            String      @unique
+  name           String
+  description    String?
+  weight         Float?
+  unit           ProductUnit @default(KG)
+  stockQuantity  Int
+  minStock       Int         @default(5)
+  category       String
+  rating         Float?
+  updatedAt      DateTime    @updatedAt
+  expirationDate DateTime    @db.Date
+  lotNumber      String?
+  section        String
+  note           String?
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Notifications  Notification[]
+}
+
+model AuditLogs {
+  logId     String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [productId], onDelete: SetNull)
+}

@@ -1,0 +1,14 @@
+# Dependências
+node_modules
+.next
+out
+build
+
+# Variáveis de ambiente (Segurança máxima)
+.env
+.env.*
+!.env.example
+
+# Logs e arquivos do sistema
+*.log
+.DS_Store
