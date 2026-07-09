@@ -9,7 +9,7 @@ import {
   Provider,
 } from "react-redux";
 import globalReducer from "@/state";
-import authReducer from "@/state/authSlice"; // 🚀 NOVO: Importando o reducer de autenticação
+import authReducer from "@/state/authSlice";
 import { api } from "@/state/api";
 import { setupListeners } from "@reduxjs/toolkit/query";
 
@@ -26,7 +26,6 @@ import {
 import { PersistGate } from "redux-persist/integration/react";
 import createWebStorage from "redux-persist/lib/storage/createWebStorage";
 
-/* REDUX PERSISTENCE */
 const createNoopStorage = () => {
   return {
     getItem(_key: any) {
@@ -49,24 +48,22 @@ const storage =
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["global"], // 🔥 Mantemos apenas o global persistido. O auth se auto-gerencia via localStorage síncrono e cookies do Better Auth!
+  whitelist: ["global"],
 };
 
 const rootReducer = combineReducers({
   global: globalReducer,
-  auth: authReducer, // 🔌 CONECTADO: Agora o TypeScript reconhecerá 'state.auth' em qualquer lugar do app
+  auth: authReducer,
   [api.reducerPath]: api.reducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
-/* REDUX STORE */
 export const makeStore = () => {
   return configureStore({
     reducer: persistedReducer,
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
-        // 🚀 CORREÇÃO CRÍTICA ATUALIZADA: Ignora os tipos Date do Better Auth nas Actions e no Estado
         serializableCheck: {
           ignoredActions: [
             FLUSH,
@@ -76,14 +73,14 @@ export const makeStore = () => {
             PURGE,
             REGISTER,
             "__rtkq/unfocused",
-            "auth/setCredentials", // ⚡ ATUALIZADO: Agora aponta para o slice correto de autenticação
+            "auth/setCredentials",
           ],
           ignoredActionPaths: [
             "payload.user.createdAt",
             "payload.user.updatedAt",
           ],
           ignoredPaths: [
-            "auth.user.createdAt", // ⚡ ATUALIZADO: Evita erros se as datas do Better Auth vierem no estado auth
+            "auth.user.createdAt",
             "auth.user.updatedAt",
             "api.queries",
           ],
@@ -104,15 +101,17 @@ export default function StoreProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const storeRef = useRef<AppStore>();
+  const storeRef = useRef<AppStore | null>(null);
+
   if (!storeRef.current) {
     storeRef.current = makeStore();
     setupListeners(storeRef.current.dispatch);
   }
-  const persistor = persistStore(storeRef.current);
+
+  const persistor = persistStore(storeRef.current!);
 
   return (
-    <Provider store={storeRef.current}>
+    <Provider store={storeRef.current!}>
       <PersistGate loading={null} persistor={persistor}>
         {children}
       </PersistGate>
