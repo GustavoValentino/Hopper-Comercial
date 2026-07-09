@@ -21,9 +21,16 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// Lista de domínios permitidos
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://hopper-comercial.vercel.app",
+];
+
+// Configuração do Socket.io com CORS robusto
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     credentials: true,
   },
@@ -32,12 +39,22 @@ const io = new Server(server, {
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("dev"));
+
+// Configuração do CORS do Express unificada
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: function (origin, callback) {
+      // Permite requisições sem origin (como mobile apps ou ferramentas de teste)
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Não permitido por CORS"));
+      }
+    },
     credentials: true,
   }),
 );
+
 app.use(express.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 
