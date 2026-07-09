@@ -2,13 +2,13 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "build": "rimraf dist && npx tsc",
+    "build": "rimraf dist && tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts"
   },
