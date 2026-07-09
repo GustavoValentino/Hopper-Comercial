@@ -9,6 +9,7 @@
     "resolveJsonModule": true,
 
     /* Emit */
+    "rootDir": "./src",
     "outDir": "./dist",
 
     /* Interop Constraints */
