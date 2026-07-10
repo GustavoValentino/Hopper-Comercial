@@ -72,7 +72,7 @@ const Register = () => {
           const user = response.data.user;
           try {
             await fetch(
-              "http://localhost:3001/api/auth/send-verification-email",
+              `${process.env.NEXT_PUBLIC_API_URL}/api/auth/send-verification-email`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
