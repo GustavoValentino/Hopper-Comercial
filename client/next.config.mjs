@@ -23,19 +23,13 @@ const nextConfig = {
     ],
   },
 
-  // 🚀 CONFIGURAÇÃO ADICIONADA: Ignora erros de build para permitir o deploy
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
   async rewrites() {
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
     return [
       {
         source: "/api/auth/:path*",
-        destination: "http://localhost:3001/api/auth/:path*",
+        destination: `${apiBaseUrl}/api/auth/:path*`,
       },
     ];
   },
