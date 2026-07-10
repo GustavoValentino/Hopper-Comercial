@@ -49,15 +49,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const isPublicPage = rotasPublicas.includes(pathname);
 
   useEffect(() => {
-    const novoSocket = io(
-      process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/api", "") ||
-        "http://localhost:3001",
-      { withCredentials: true },
-    );
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
+      "https://hopper-comercial.onrender.com";
+
+    const novoSocket = io(baseUrl, {
+      withCredentials: true,
+      transports: ["websocket"], // Recomendado para evitar problemas de polling em produção
+    });
+
     setSocket(novoSocket);
+
     novoSocket.on("update_online_count", (count: number) =>
       setOnlineCount(count),
     );
+
     return () => {
       novoSocket.disconnect();
     };

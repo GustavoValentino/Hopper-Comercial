@@ -23,11 +23,13 @@ const VerifyEmailContent = () => {
     if (hasFetched.current) return;
     hasFetched.current = true;
 
-    fetch(`http://localhost:3001/api/auth/verify-email?token=${token}`, {
-      method: "GET",
-
-      redirect: "follow",
-    })
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/verify-email?token=${token}`,
+      {
+        method: "GET",
+        redirect: "follow",
+      },
+    )
       .then((res) => {
         if (res.ok || res.redirected) {
           setStatus("success");
