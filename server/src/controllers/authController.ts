@@ -10,6 +10,7 @@ const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
   port: Number(process.env.EMAIL_PORT) || 587,
   secure: false,
+  family: 4,
   socketTimeout: 10000,
   dnsTimeout: 10000,
   connectionTimeout: 10000,
@@ -17,7 +18,7 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER?.trim().toLowerCase(),
     pass: process.env.EMAIL_PASS?.replace(/\s/g, ""),
   },
-});
+} as any);
 
 export const requestPasswordReset = async (
   req: Request,
