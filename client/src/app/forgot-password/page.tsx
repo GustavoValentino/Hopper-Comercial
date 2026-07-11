@@ -18,9 +18,8 @@ export default function ForgotPassword() {
       setError(null);
 
       try {
-        // Dica: Em um ambiente de produção, substitua localhost por uma variável de ambiente (ex: process.env.NEXT_PUBLIC_API_URL)
         const response = await fetch(
-          "http://localhost:3001/api/auth/forgot-password",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/forgot-password`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
