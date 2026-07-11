@@ -8,20 +8,21 @@ import http from "http";
 import { Server } from "socket.io";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
-
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import dns from "dns";
+
+dns.setDefaultResultOrder("ipv4first");
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Lista de domínios permitidos
 const allowedOrigins = [
   "http://localhost:3000",
   "https://hopper-comercial.vercel.app",
