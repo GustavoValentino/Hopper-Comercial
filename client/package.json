@@ -13,7 +13,7 @@
     "@emotion/styled": "^11.14.1",
     "@mui/material": "^5.18.0",
     "@mui/system": "^5.18.0",
-    "@mui/x-data-grid": "^9.9.0",
+    "@mui/x-data-grid": "^7.29.1",
     "@reduxjs/toolkit": "^2.2.6",
     "axios": "^1.7.2",
     "better-auth": "^1.6.12",
