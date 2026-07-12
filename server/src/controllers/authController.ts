@@ -1,46 +1,35 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
-import dns from "dns/promises";
 import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient();
 
-// Cria o transporter resolvendo o host para IPv4 manualmente,
-// contornando o ENETUNREACH causado por endereços IPv6 do Gmail
-// não alcançáveis pela rede do Render.
-async function getTransporter() {
-  const originalHost = process.env.EMAIL_HOST || "smtp.gmail.com";
-  let host = originalHost;
+async function sendEmail(to: string, subject: string, html: string) {
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "api-key": process.env.BREVO_API_KEY as string,
+    },
+    body: JSON.stringify({
+      sender: {
+        name: "Hopper",
+        email: process.env.EMAIL_USER,
+      },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
 
-  try {
-    const addresses = await dns.resolve4(originalHost);
-    if (addresses.length > 0) {
-      host = addresses[0];
-    }
-  } catch (err) {
-    console.error(
-      "⚠️ Falha ao resolver IPv4 para o host de e-mail, usando hostname original:",
-      err,
-    );
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Brevo API error (${response.status}): ${errorBody}`);
   }
 
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    tls: {
-      servername: originalHost, // necessário para o TLS validar o certificado corretamente
-    },
-    socketTimeout: 10000,
-    dnsTimeout: 10000,
-    connectionTimeout: 10000,
-    auth: {
-      user: process.env.EMAIL_USER?.trim().toLowerCase(),
-      pass: process.env.EMAIL_PASS?.replace(/\s/g, ""),
-    },
-  } as any);
+  return response.json();
 }
 
 export const requestPasswordReset = async (
@@ -200,20 +189,14 @@ export const requestPasswordReset = async (
 </html>
     `;
 
-    const transporter = await getTransporter();
-    await transporter.sendMail({
-      from: `"Hopper" <${process.env.EMAIL_USER}>`,
-      to: user.email,
-      subject: "Redefinição de senha — Hopper",
-      html: emailHtml,
-    });
+    await sendEmail(user.email, "Redefinição de senha — Hopper", emailHtml);
 
     res.status(200).json({
       message:
         "Se o e-mail constar em nossa base, as instruções de redefinição foram enviadas.",
     });
   } catch (error: any) {
-    console.error("❌ ERRO AO ENVIAR EMAIL COM NODEMAILER:", error);
+    console.error("❌ ERRO AO ENVIAR EMAIL:", error);
     res.status(500).json({
       error: "Falha interna ao processar recuperação de senha.",
       details: error.message,
@@ -419,13 +402,7 @@ export const sendVerificationEmail = async (
 </html>
   `;
 
-  const transporter = await getTransporter();
-  await transporter.sendMail({
-    from: `"Hopper" <${process.env.EMAIL_USER}>`,
-    to: userEmail,
-    subject: "Confirme seu e-mail — Hopper",
-    html: emailHtml,
-  });
+  await sendEmail(userEmail, "Confirme seu e-mail — Hopper", emailHtml);
 };
 
 export const verifyEmail = async (
