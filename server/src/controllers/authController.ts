@@ -2,23 +2,46 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import dns from "dns/promises";
 import { hashPassword } from "better-auth/crypto";
 
 const prisma = new PrismaClient();
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 587,
-  secure: false,
-  family: 4,
-  socketTimeout: 10000,
-  dnsTimeout: 10000,
-  connectionTimeout: 10000,
-  auth: {
-    user: process.env.EMAIL_USER?.trim().toLowerCase(),
-    pass: process.env.EMAIL_PASS?.replace(/\s/g, ""),
-  },
-} as any);
+// Cria o transporter resolvendo o host para IPv4 manualmente,
+// contornando o ENETUNREACH causado por endereços IPv6 do Gmail
+// não alcançáveis pela rede do Render.
+async function getTransporter() {
+  const originalHost = process.env.EMAIL_HOST || "smtp.gmail.com";
+  let host = originalHost;
+
+  try {
+    const addresses = await dns.resolve4(originalHost);
+    if (addresses.length > 0) {
+      host = addresses[0];
+    }
+  } catch (err) {
+    console.error(
+      "⚠️ Falha ao resolver IPv4 para o host de e-mail, usando hostname original:",
+      err,
+    );
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: false,
+    tls: {
+      servername: originalHost, // necessário para o TLS validar o certificado corretamente
+    },
+    socketTimeout: 10000,
+    dnsTimeout: 10000,
+    connectionTimeout: 10000,
+    auth: {
+      user: process.env.EMAIL_USER?.trim().toLowerCase(),
+      pass: process.env.EMAIL_PASS?.replace(/\s/g, ""),
+    },
+  } as any);
+}
 
 export const requestPasswordReset = async (
   req: Request,
@@ -65,24 +88,17 @@ export const requestPasswordReset = async (
   <title>Recuperação de Senha — Hopper</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:'Segoe UI', Arial, sans-serif;">
-
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9; padding: 48px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
-
-          <!-- Logo / Brand -->
           <tr>
             <td align="center" style="padding-bottom: 24px;">
               <span style="font-size:13px; font-weight:700; color:#64748b; letter-spacing:2px; text-transform:uppercase;">Hopper</span>
             </td>
           </tr>
-
-          <!-- Card principal -->
           <tr>
             <td style="background-color:#ffffff; border-radius:20px; overflow:hidden; box-shadow: 0 4px 32px rgba(0,0,0,0.07);">
-
-              <!-- Header -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background-color:#0f172a; padding: 40px 40px 36px; text-align:center;">
@@ -98,27 +114,20 @@ export const requestPasswordReset = async (
                   </td>
                 </tr>
               </table>
-
-              <!-- Linha separadora colorida -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="height:3px; background: linear-gradient(90deg, #10b981 0%, #059669 50%, #047857 100%);"></td>
                 </tr>
               </table>
-
-              <!-- Corpo -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding: 40px 40px 32px;">
-
                     <p style="color:#374151; font-size:15px; font-weight:600; margin:0 0 6px;">
                       Olá, ${user.name}
                     </p>
                     <p style="color:#6b7280; font-size:14px; line-height:1.7; margin:0 0 28px;">
                       Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para criar uma nova senha de acesso. Se não foi você, ignore este e-mail com segurança.
                     </p>
-
-                    <!-- Botão CTA -->
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding-bottom: 32px;">
@@ -140,8 +149,6 @@ export const requestPasswordReset = async (
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Alerta de expiração -->
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 28px;">
                       <tr>
                         <td style="background-color:#fefce8; border:1px solid #fde68a; border-radius:10px; padding:14px 18px;">
@@ -151,8 +158,6 @@ export const requestPasswordReset = async (
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Link manual -->
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 18px;">
@@ -165,12 +170,9 @@ export const requestPasswordReset = async (
                         </td>
                       </tr>
                     </table>
-
                   </td>
                 </tr>
               </table>
-
-              <!-- Divisor -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="border-top: 1px solid #f1f5f9; padding: 24px 40px;">
@@ -181,11 +183,8 @@ export const requestPasswordReset = async (
                   </td>
                 </tr>
               </table>
-
             </td>
           </tr>
-
-          <!-- Footer externo -->
           <tr>
             <td align="center" style="padding-top: 28px;">
               <p style="color:#94a3b8; font-size:11px; margin:0; line-height:1.6;">
@@ -193,16 +192,15 @@ export const requestPasswordReset = async (
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
   </table>
-
 </body>
 </html>
     `;
 
+    const transporter = await getTransporter();
     await transporter.sendMail({
       from: `"Hopper" <${process.env.EMAIL_USER}>`,
       to: user.email,
@@ -223,9 +221,6 @@ export const requestPasswordReset = async (
   }
 };
 
-/**
- * 2. CONFIRMAR E ATUALIZAR A SENHA
- */
 export const resetPassword = async (
   req: Request,
   res: Response,
@@ -312,24 +307,17 @@ export const sendVerificationEmail = async (
   <title>Verificação de E-mail — Hopper</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:'Segoe UI', Arial, sans-serif;">
-
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9; padding: 48px 16px;">
     <tr>
       <td align="center">
         <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
-
-          <!-- Logo / Brand -->
           <tr>
             <td align="center" style="padding-bottom: 24px;">
               <span style="font-size:13px; font-weight:700; color:#64748b; letter-spacing:2px; text-transform:uppercase;">Hopper</span>
             </td>
           </tr>
-
-          <!-- Card principal -->
           <tr>
             <td style="background-color:#ffffff; border-radius:20px; overflow:hidden; box-shadow: 0 4px 32px rgba(0,0,0,0.07);">
-
-              <!-- Header -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background-color:#0f172a; padding: 40px 40px 36px; text-align:center;">
@@ -345,27 +333,20 @@ export const sendVerificationEmail = async (
                   </td>
                 </tr>
               </table>
-
-              <!-- Linha separadora colorida -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="height:3px; background: linear-gradient(90deg, #10b981 0%, #059669 50%, #047857 100%);"></td>
                 </tr>
               </table>
-
-              <!-- Corpo -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="padding: 40px 40px 32px;">
-
                     <p style="color:#374151; font-size:15px; font-weight:600; margin:0 0 6px;">
                       Olá, ${userName} 👋
                     </p>
                     <p style="color:#6b7280; font-size:14px; line-height:1.7; margin:0 0 28px;">
                       Seu cadastro foi recebido com sucesso. Para ativar seu acesso e garantir a segurança da sua conta, clique no botão abaixo para verificar seu endereço de e-mail.
                     </p>
-
-                    <!-- Botão CTA -->
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding-bottom: 32px;">
@@ -387,8 +368,6 @@ export const sendVerificationEmail = async (
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Alerta de expiração -->
                     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 28px;">
                       <tr>
                         <td style="background-color:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:14px 18px;">
@@ -398,8 +377,6 @@ export const sendVerificationEmail = async (
                         </td>
                       </tr>
                     </table>
-
-                    <!-- Link manual -->
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px 18px;">
@@ -412,12 +389,9 @@ export const sendVerificationEmail = async (
                         </td>
                       </tr>
                     </table>
-
                   </td>
                 </tr>
               </table>
-
-              <!-- Divisor -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="border-top: 1px solid #f1f5f9; padding: 24px 40px;">
@@ -428,11 +402,8 @@ export const sendVerificationEmail = async (
                   </td>
                 </tr>
               </table>
-
             </td>
           </tr>
-
-          <!-- Footer externo -->
           <tr>
             <td align="center" style="padding-top: 28px;">
               <p style="color:#94a3b8; font-size:11px; margin:0; line-height:1.6;">
@@ -440,16 +411,15 @@ export const sendVerificationEmail = async (
               </p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
   </table>
-
 </body>
 </html>
   `;
 
+  const transporter = await getTransporter();
   await transporter.sendMail({
     from: `"Hopper" <${process.env.EMAIL_USER}>`,
     to: userEmail,
@@ -522,6 +492,9 @@ export const sendVerificationEmailRoute = async (
     res.status(200).json({ message: "E-mail de verificação enviado." });
   } catch (error: any) {
     console.error("❌ ERRO AO ENVIAR EMAIL DE VERIFICAÇÃO:", error);
-    res.status(500).json({ error: "Falha ao enviar e-mail de verificação." });
+    res.status(500).json({
+      error: "Falha ao enviar e-mail de verificação.",
+      details: error.message,
+    });
   }
 };
