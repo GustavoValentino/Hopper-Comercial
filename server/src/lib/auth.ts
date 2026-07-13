@@ -2,23 +2,18 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "../prisma.js";
 
-const BACKEND_URL =
-  process.env.BETTER_AUTH_URL || "https://hopper-comercial.onrender.com";
-const FRONTEND_URL =
-  process.env.FRONTEND_URL || "https://hopper-comercial.vercel.app";
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
 
-  baseURL: BACKEND_URL,
+  baseURL: FRONTEND_URL,
 
   trustedOrigins: process.env.TRUSTED_ORIGINS
     ? process.env.TRUSTED_ORIGINS.split(",")
     : [FRONTEND_URL],
-
-  cookiePrefix: "hopper",
 
   emailAndPassword: {
     enabled: true,
