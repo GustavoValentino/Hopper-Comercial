@@ -28,8 +28,8 @@ const nextConfig = {
       process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
     return [
       {
-        source: "/api/auth/:path*",
-        destination: `${apiBaseUrl}/api/auth/:path*`,
+        source: "/api/:path*",
+        destination: `${apiBaseUrl}/api/:path*`,
       },
     ];
   },

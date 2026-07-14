@@ -83,7 +83,7 @@ export interface UpdateUserFields {
 
 export const api = createApi({
   baseQuery: fetchBaseQuery({
-    baseUrl: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api`,
+    baseUrl: "/api",
     credentials: "include",
     prepareHeaders: (headers) => headers,
   }),
