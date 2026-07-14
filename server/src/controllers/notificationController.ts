@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 
 const prisma = new PrismaClient();
 
@@ -8,12 +9,25 @@ export const getNotifications = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { userId } = req.query;
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.userId;
 
     if (!userId) {
-      res.status(400).json({ error: "O parâmetro userId é obrigatório." });
+      res.status(401).json({ error: "Usuário não autenticado." });
       return;
     }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!currentUser) {
+      res.status(404).json({ error: "Usuário não encontrado." });
+      return;
+    }
+
+    const isAdmin = currentUser.role?.toLowerCase() === "admin";
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -24,9 +38,15 @@ export const getNotifications = async (
 
     const produtosCriticos = await prisma.product.findMany({
       where: {
+        ...(isAdmin ? {} : { userId }),
         expirationDate: {
           gte: hoje,
           lte: limiteCritico,
+        },
+      },
+      include: {
+        user: {
+          select: { name: true },
         },
       },
     });
@@ -36,7 +56,7 @@ export const getNotifications = async (
 
       const alertaExistente = await prisma.notification.findFirst({
         where: {
-          userId: String(userId),
+          userId,
           productId: produto.productId,
           type: "CRITICAL_EXPIRY",
           isRead: false,
@@ -62,19 +82,24 @@ export const getNotifications = async (
         const setor =
           (produto as any).category || (produto as any).section || "Geral";
 
+        const responsavel =
+          isAdmin && produto.user?.name
+            ? ` (Responsável: ${produto.user.name})`
+            : "";
+
         await prisma.notification.create({
           data: {
-            userId: String(userId),
+            userId,
             productId: produto.productId,
             type: "CRITICAL_EXPIRY",
-            message: `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.`,
+            message: `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.${responsavel}`,
           },
         });
       }
     }
 
     const notifications = await prisma.notification.findMany({
-      where: { userId: String(userId) },
+      where: { userId },
       orderBy: { createdAt: "desc" },
     });
 
@@ -91,15 +116,16 @@ export const markAllAsRead = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { userId } = req.body;
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.userId;
 
     if (!userId) {
-      res.status(400).json({ error: "O campo userId é obrigatório." });
+      res.status(401).json({ error: "Usuário não autenticado." });
       return;
     }
 
     await prisma.notification.updateMany({
-      where: { userId: String(userId), isRead: false },
+      where: { userId, isRead: false },
       data: { isRead: true },
     });
 
@@ -107,12 +133,10 @@ export const markAllAsRead = async (
       .status(200)
       .json({ message: "Todas as notificações foram marcadas como lidas." });
   } catch (error: any) {
-    res
-      .status(500)
-      .json({
-        error: "Erro ao atualizar notificações.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Erro ao atualizar notificações.",
+      details: error.message,
+    });
   }
 };
 
@@ -152,21 +176,30 @@ export const markAsRead = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.userId;
     const { id } = req.params;
 
-    const notificacao = await prisma.notification.update({
+    const notificacao = await prisma.notification.findUnique({
+      where: { id: String(id) },
+    });
+
+    if (!notificacao || notificacao.userId !== userId) {
+      res.status(403).json({ error: "Acesso negado a esta notificação." });
+      return;
+    }
+
+    const atualizada = await prisma.notification.update({
       where: { id: String(id) },
       data: { isRead: true },
     });
 
-    res.status(200).json(notificacao);
+    res.status(200).json(atualizada);
   } catch (error: any) {
-    res
-      .status(500)
-      .json({
-        error: "Erro ao marcar notificação como lida.",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "Erro ao marcar notificação como lida.",
+      details: error.message,
+    });
   }
 };
 
@@ -175,7 +208,18 @@ export const deleteNotification = async (
   res: Response,
 ): Promise<void> => {
   try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.userId;
     const { id } = req.params;
+
+    const notificacao = await prisma.notification.findUnique({
+      where: { id: String(id) },
+    });
+
+    if (!notificacao || notificacao.userId !== userId) {
+      res.status(403).json({ error: "Acesso negado a esta notificação." });
+      return;
+    }
 
     await prisma.notification.delete({
       where: { id: String(id) },
