@@ -200,8 +200,8 @@ export const api = createApi({
       invalidatesTags: ["Users", "AuditLogs"],
     }),
 
-    getNotifications: build.query<Notification[], { userId: string }>({
-      query: ({ userId }) => `/notifications?userId=${userId}`,
+    getNotifications: build.query<Notification[], void>({
+      query: () => "/notifications",
       providesTags: (result) =>
         result
           ? [
@@ -230,12 +230,8 @@ export const api = createApi({
       invalidatesTags: (_r, _e, { id }) => [{ type: "Notifications", id }],
     }),
 
-    markAllNotificationsAsRead: build.mutation<any, { userId: string }>({
-      query: ({ userId }) => ({
-        url: "/notifications/read-all",
-        method: "PATCH",
-        body: { userId },
-      }),
+    markAllNotificationsAsRead: build.mutation<any, void>({
+      query: () => ({ url: "/notifications/read-all", method: "PATCH" }),
       invalidatesTags: [{ type: "Notifications", id: "LIST" }],
     }),
 

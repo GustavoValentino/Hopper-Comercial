@@ -6,13 +6,14 @@ import {
   markAsRead,
   deleteNotification,
 } from "../controllers/notificationController.js";
+import { protegerRota } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
-router.get("/", getNotifications);
-router.post("/", createNotification);
-router.patch("/read-all", markAllAsRead);
-router.patch("/:id/read", markAsRead);
-router.delete("/:id", deleteNotification);
+router.get("/", protegerRota, getNotifications);
+router.post("/", protegerRota, createNotification);
+router.patch("/read-all", protegerRota, markAllAsRead);
+router.patch("/:id/read", protegerRota, markAsRead);
+router.delete("/:id", protegerRota, deleteNotification);
 
 export default router;

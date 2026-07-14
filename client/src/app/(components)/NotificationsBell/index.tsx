@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAppSelector } from "@/app/redux";
 import {
   useGetNotificationsQuery,
@@ -19,14 +19,47 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+const formatRelativeTime = (isoString: string) => {
+  if (!isoString) return "---";
+  const parsed = new Date(isoString);
+  if (isNaN(parsed.getTime())) return "---";
+  const diffMs = Date.now() - parsed.getTime();
+  if (diffMs < 0) return "Agora mesmo";
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffMins < 1) return "Agora mesmo";
+  if (diffMins < 60) return `Há ${diffMins} min`;
+  if (diffHours < 24) return `Há ${diffHours} h`;
+  return parsed.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+};
+
+const getNotificationIcon = (type: string) => {
+  switch (type) {
+    case "CRITICAL_EXPIRY":
+      return (
+        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+      );
+    case "SYSTEM":
+      return <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+    default:
+      return (
+        <MessageSquare className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+      );
+  }
+};
+
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentUser = useAppSelector((state) => state.auth.user);
 
+  // userId não é mais necessário — o backend usa o cookie de sessão
   const { data: notifications = [], isLoading } = useGetNotificationsQuery(
-    { userId: currentUser?.id ?? "" },
+    undefined,
     {
       skip: !currentUser?.id,
       pollingInterval: 30000,
@@ -38,10 +71,10 @@ const NotificationBell = () => {
   const [deleteNotification] = useDeleteNotificationMutation();
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent) => {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        !dropdownRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -54,78 +87,44 @@ const NotificationBell = () => {
     (n: ApiNotification) => !n.isRead,
   ).length;
 
-  const handleMarkAsRead = async (id: string) => {
+  const handleMarkAsRead = useCallback(
+    async (id: string) => {
+      try {
+        await markAsRead({ id }).unwrap();
+      } catch (error) {
+        console.error("Erro ao marcar notificação como lida:", error);
+      }
+    },
+    [markAsRead],
+  );
+
+  // userId removido — backend identifica o usuário pelo cookie de sessão
+  const handleMarkAllAsRead = useCallback(async () => {
     try {
-      await markAsRead({ id }).unwrap();
+      await markAllAsRead().unwrap();
     } catch (error) {
-      console.error("Erro ao marcar notificação como lida:", error);
+      console.error("Erro ao marcar todas como lidas:", error);
     }
-  };
+  }, [markAllAsRead]);
 
-  const handleMarkAllAsRead = async () => {
-    if (!currentUser?.id) return;
-    try {
-      await markAllAsRead({ userId: currentUser.id }).unwrap();
-    } catch (error) {
-      console.error("Erro ao marcar todas as notificações como lidas:", error);
-    }
-  };
-
-  const handleDeleteNotification = async (
-    id: string,
-    e: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    e.stopPropagation();
-    try {
-      await deleteNotification({ id }).unwrap();
-    } catch (error) {
-      console.error("Erro ao deletar notificação:", error);
-    }
-  };
-
-  const formatRelativeTime = (isoString: string) => {
-    if (!isoString) return "---";
-
-    const parsedDate = new Date(isoString);
-    if (isNaN(parsedDate.getTime())) return "---";
-
-    const diffMs = Date.now() - parsedDate.getTime();
-    if (diffMs < 0) return "Agora mesmo";
-
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const diffHours = Math.floor(diffMins / 60);
-
-    if (diffMins < 1) return "Agora mesmo";
-    if (diffMins < 60) return `Há ${diffMins} min`;
-    if (diffHours < 24) return `Há ${diffHours} h`;
-
-    return parsedDate.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-    });
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "CRITICAL_EXPIRY":
-        return (
-          <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
-        );
-      case "SYSTEM":
-        return <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
-      default:
-        return (
-          <MessageSquare className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-        );
-    }
-  };
+  const handleDelete = useCallback(
+    async (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      try {
+        await deleteNotification({ id }).unwrap();
+      } catch (error) {
+        console.error("Erro ao excluir notificação:", error);
+      }
+    },
+    [deleteNotification],
+  );
 
   return (
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
-        aria-label={`Notificações. Você tem ${unreadCount} alertas não lidos.`}
+        aria-label={`Notificações. ${unreadCount > 0 ? `${unreadCount} alertas não lidos.` : "Nenhum alerta."}`}
         className="relative p-2.5 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#006938]"
       >
         <Bell className="w-5 h-5" />
@@ -137,7 +136,7 @@ const NotificationBell = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden transform origin-top-right transition-all animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden origin-top-right animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30">
             <div>
               <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
@@ -146,13 +145,13 @@ const NotificationBell = () => {
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 {unreadCount === 0
                   ? "Tudo em dia!"
-                  : `Você tem ${unreadCount} alertas não lidos`}
+                  : `${unreadCount} alertas não lidos`}
               </p>
             </div>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="flex items-center gap-1 text-xs font-semibold text-[#006938] hover:text-[#004d29] dark:text-green-400 dark:hover:text-green-300 transition-colors bg-transparent border-none cursor-pointer focus:outline-none"
+                className="flex items-center gap-1 text-xs font-semibold text-[#006938] hover:text-[#004d29] dark:text-green-400 dark:hover:text-green-300 transition-colors cursor-pointer focus:outline-none"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 Marcar todas como lidas
@@ -190,7 +189,7 @@ const NotificationBell = () => {
                       if (!item.isRead) handleMarkAsRead(item.id);
                     }
                   }}
-                  className={`flex flex-col px-4 py-3.5 text-left transition-all relative group border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12
+                  className={`flex flex-col px-4 py-3.5 transition-all relative border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12
                   ${!item.isRead ? "bg-green-50/5 dark:bg-gray-800/40" : "hover:bg-gray-50 dark:hover:bg-gray-800/20"}
                   ${item.type === "CRITICAL_EXPIRY" ? "border-l-red-500" : "border-l-transparent"}
                 `}
@@ -198,15 +197,23 @@ const NotificationBell = () => {
                   <div className="flex gap-3">
                     <div
                       className={`flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5
-                      ${item.type === "CRITICAL_EXPIRY" ? "bg-red-50 dark:bg-red-950/40 text-red-600" : "bg-gray-100 dark:bg-gray-800 text-gray-500"}
-                    `}
+                    ${
+                      item.type === "CRITICAL_EXPIRY"
+                        ? "bg-red-50 dark:bg-red-950/40"
+                        : "bg-gray-100 dark:bg-gray-800"
+                    }
+                  `}
                     >
                       {getNotificationIcon(item.type)}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <p
-                        className={`text-xs sm:text-sm leading-relaxed text-gray-700 dark:text-gray-300 ${!item.isRead ? "font-medium text-gray-900 dark:text-gray-100" : ""}`}
+                        className={`text-xs sm:text-sm leading-relaxed text-gray-700 dark:text-gray-300 ${
+                          !item.isRead
+                            ? "font-medium text-gray-900 dark:text-gray-100"
+                            : ""
+                        }`}
                       >
                         {item.message}
                       </p>
@@ -218,10 +225,10 @@ const NotificationBell = () => {
                   </div>
 
                   <button
-                    onClick={(e) => handleDeleteNotification(item.id, e)}
+                    onClick={(e) => handleDelete(item.id, e)}
                     title="Apagar aviso"
                     aria-label="Apagar notificação"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors bg-transparent border-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
