@@ -332,7 +332,7 @@ const CreateProductModal = ({
               <input
                 type="text"
                 name="name"
-                placeholder="Ex: Arroz Tipo 1 5kg"
+                placeholder="Ex: Arroz Branco Camil Tipo 1 5kg"
                 onChange={handleChange}
                 value={formData.name}
                 className={inputCssStyles}
@@ -345,7 +345,7 @@ const CreateProductModal = ({
               <label htmlFor="category" className={labelCssStyles}>
                 <span className="flex items-center gap-1.5">
                   <TagIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Carredor e Departamento
+                  Corredor e Departamento
                 </span>
               </label>
 
