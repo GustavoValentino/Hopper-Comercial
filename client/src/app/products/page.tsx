@@ -16,6 +16,22 @@ import { useState } from "react";
 import Header from "@/app/(components)/Header";
 import CreateProductModal from "./CreateProductModal";
 
+const ProductSkeleton = () => (
+  <div className="bg-white dark:bg-gray-800 border-t-4 border-t-gray-200 dark:border-t-gray-700 rounded-xl p-5 border border-gray-100/50 dark:border-gray-700/40 animate-pulse">
+    <div className="flex items-center justify-between mb-3">
+      <div className="h-4 w-24 bg-gray-100 dark:bg-gray-700 rounded" />
+      <div className="h-4 w-16 bg-gray-100 dark:bg-gray-700 rounded" />
+    </div>
+    <div className="h-4 w-3/4 bg-gray-100 dark:bg-gray-700 rounded mb-3" />
+    <div className="h-16 bg-gray-50 dark:bg-gray-700/30 rounded-xl mb-3.5" />
+    <div className="h-14 bg-gray-50 dark:bg-gray-900/20 rounded-lg mb-4" />
+    <div className="flex justify-between pt-3.5 border-t border-gray-100 dark:border-gray-700/60">
+      <div className="h-8 w-16 bg-gray-100 dark:bg-gray-700 rounded" />
+      <div className="h-8 w-20 bg-gray-100 dark:bg-gray-700 rounded" />
+    </div>
+  </div>
+);
+
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,25 +60,12 @@ const Products = () => {
       return "0,000 kg";
     }
 
-    // Se no banco o registro for ML_G, exibe estritamente como mililitros inteiros
     if (unidade === "ML_G") {
       return `${Math.round(pesoNumerico * 1000)} ml`;
     }
 
-    // Caso contrário, renderiza como kilogramas formatados
     return `${pesoNumerico.toFixed(3).replace(".", ",")} kg`;
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-        <span className="font-bold text-gray-600 dark:text-gray-400 text-sm tracking-wide">
-          Carregando catálogo de produtos...
-        </span>
-      </div>
-    );
-  }
 
   if (isError) {
     return (
@@ -74,35 +77,45 @@ const Products = () => {
 
   return (
     <div className="mx-auto pb-5 w-full text-gray-900 dark:text-gray-100">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-        <div className="flex flex-col">
-          <Header name="Produtos Cadastrados" />
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-            Gestão física, monitoramento de volumetria e status de integridade
-          </p>
+      <div className="flex flex-col mb-6">
+        <Header name="Produtos Cadastrados" />
+        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+          Gestão física, monitoramento de volumetria e status de integridade
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3 w-full md:flex-row md:items-center mb-8">
+        <div className="relative w-full md:w-80 lg:w-96">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+          <input
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
+            placeholder="Buscar por nome ou código de barras..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
-          <div className="relative w-full sm:w-72 md:w-80 lg:w-96">
-            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-            <input
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
-              placeholder="Buscar por nome ou código de barras..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
+        <div className="flex items-center justify-between md:justify-end gap-3">
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium md:hidden">
+            {products?.length || 0}{" "}
+            {products?.length === 1 ? "produto" : "produtos"}
+          </span>
           <button
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
             onClick={() => setIsModalOpen(true)}
           >
-            <PlusCircleIcon className="w-4 h-4 mr-2" /> Novo Produto
+            <PlusCircleIcon className="w-4 h-4" /> Novo produto
           </button>
         </div>
       </div>
 
-      {products && products.length > 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ProductSkeleton key={i} />
+          ))}
+        </div>
+      ) : products && products.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {products.map((product: any) => {
             const qtd = product.stockQuantity;
@@ -154,12 +167,14 @@ const Products = () => {
                 className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:border-gray-600/60 transition-all duration-300 flex flex-col justify-between`}
               >
                 <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center text-[10px] font-mono text-blue-600 bg-blue-50/60 dark:bg-blue-950/30 dark:text-blue-400 px-2 py-0.5 rounded font-bold">
-                      <BarcodeIcon className="w-3 h-3 mr-1" />
-                      {product.sku || "SEM SKU"}
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center text-[10px] font-mono text-blue-600 bg-blue-50/60 dark:bg-blue-950/30 dark:text-blue-400 px-2 py-0.5 rounded font-bold truncate">
+                      <BarcodeIcon className="w-3 h-3 mr-1 shrink-0" />
+                      <span className="truncate">
+                        {product.sku || "SEM SKU"}
+                      </span>
                     </div>
-                    {statusBadge}
+                    <div className="shrink-0">{statusBadge}</div>
                   </div>
 
                   <h3 className="text-sm text-gray-800 dark:text-gray-100 font-bold uppercase leading-snug mb-3 line-clamp-2 min-h-[2.25rem] tracking-tight">
@@ -170,7 +185,6 @@ const Products = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center text-xs text-gray-700 dark:text-gray-200 font-semibold">
                         <ScaleIcon className="w-3.5 h-3.5 mr-2 text-gray-400 dark:text-gray-500" />
-
                         <span>
                           {formatarPesoMetrico(product.weight, product.unit)}
                         </span>
@@ -194,9 +208,9 @@ const Products = () => {
                   </div>
 
                   <div className="flex-grow mb-4">
-                    <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400 italic text-[11px] bg-gray-50/50 dark:bg-gray-900/20 p-2.5 rounded-lg border-l-2 border-slate-300 dark:border-gray-700 min-h-[3.5rem]">
+                    <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400 italic text-[11px] bg-gray-50/50 dark:bg-gray-900/20 p-2.5 rounded-lg border-l-2 border-slate-300 dark:border-gray-700 min-h-[2.75rem]">
                       <MessageSquareMoreIcon className="w-3.5 h-3.5 mt-0.5 text-gray-400 shrink-0" />
-                      <p className="line-clamp-3 leading-relaxed">
+                      <p className="line-clamp-2 leading-relaxed">
                         {product.note ||
                           "Sem anotações complementares para este lote."}
                       </p>
@@ -242,7 +256,7 @@ const Products = () => {
           <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
             Nenhum produto localizado no catálogo.
           </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-5">
             Tente buscar pelo código ou realize um novo registro operacional.
           </p>
         </div>
