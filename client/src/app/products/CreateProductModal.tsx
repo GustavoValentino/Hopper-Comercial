@@ -8,6 +8,7 @@ import React, {
   useRef,
 } from "react";
 import { v4 } from "uuid";
+import AvatarEditor from "react-avatar-editor";
 import Header from "@/app/(components)/Header";
 import {
   validarEAN13,
@@ -27,6 +28,8 @@ import {
   Camera,
   ChevronDown,
   X,
+  ImagePlus,
+  ZoomIn,
 } from "lucide-react";
 
 type ProductFormData = {
@@ -40,6 +43,8 @@ type ProductFormData = {
   expirationDate: string;
   section: string;
   note: string;
+  imageUrl?: string;
+  imageBase64?: string;
 };
 
 type CreateProductModalProps = {
@@ -104,6 +109,15 @@ const CreateProductModal = ({
   const [isSelectAberto, setIsSelectAberto] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── Estado da imagem do produto ─────────────────────────────
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [scale, setScale] = useState(1.2);
+  const [newImageBase64, setNewImageBase64] = useState<string | null>(null);
+  const editorRef = useRef<React.ElementRef<typeof AvatarEditor>>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (initialData) {
       const pesoNumerico = initialData.weight || 0;
@@ -139,6 +153,8 @@ const CreateProductModal = ({
       const valido = validarEAN13(initialData.sku || "");
       setSkuValido(valido);
       setSkuErro(valido ? null : "Código EAN inválido na base de dados");
+      setImagePreview(initialData.imageUrl || null);
+      setNewImageBase64(null);
     } else {
       setUnidadeMedida("KG");
       setFormData({
@@ -154,7 +170,12 @@ const CreateProductModal = ({
       });
       setSkuErro(null);
       setSkuValido(false);
+      setImagePreview(null);
+      setNewImageBase64(null);
     }
+    setPendingFile(null);
+    setIsCropOpen(false);
+    setScale(1.2);
   }, [initialData, isOpen]);
 
   useEffect(() => {
@@ -216,6 +237,36 @@ const CreateProductModal = ({
     setIsCameraAberta(false);
   };
 
+  // ── Handlers de imagem ───────────────────────────────────────
+  const handleSelecionarImagem = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile(file);
+    setScale(1.2);
+    setIsCropOpen(true);
+    e.target.value = "";
+  };
+
+  const handleAplicarRecorte = () => {
+    if (!editorRef.current) return;
+    const canvas = editorRef.current.getImage();
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    setNewImageBase64(dataUrl);
+    setImagePreview(dataUrl);
+    setIsCropOpen(false);
+    setPendingFile(null);
+  };
+
+  const handleCancelarRecorte = () => {
+    setIsCropOpen(false);
+    setPendingFile(null);
+  };
+
+  const handleRemoverImagem = () => {
+    setImagePreview(null);
+    setNewImageBase64(null);
+  };
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!skuValido) return;
@@ -231,6 +282,7 @@ const CreateProductModal = ({
       weight: pesoFinal,
       unit: unidadeMedida,
       section: formData.category.trim(),
+      ...(newImageBase64 && { imageBase64: newImageBase64 }),
     };
 
     onCreate(dadosParaEnviar);
@@ -268,6 +320,53 @@ const CreateProductModal = ({
           />
 
           <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-2 gap-4">
+            {/* FOTO DO PRODUTO */}
+            <div className="col-span-2 flex items-center gap-4">
+              <div className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center">
+                {imagePreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreview}
+                    alt="Prévia do produto"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImagePlus className="w-6 h-6 text-gray-300 dark:text-gray-600" />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className={labelCssStyles + " mb-0"}>
+                  Foto do Produto (opcional)
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 rounded-lg transition-all cursor-pointer"
+                  >
+                    {imagePreview ? "Trocar foto" : "Adicionar foto"}
+                  </button>
+                  {imagePreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoverImagem}
+                      className="px-3 py-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSelecionarImagem}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
             {/* CÓDIGO DE BARRAS (SKU) */}
             <div className="col-span-2">
               <div className="flex justify-between items-center mb-1.5">
@@ -455,13 +554,12 @@ const CreateProductModal = ({
                     setUnidadeMedida(novaUnidade);
                     setFormData({
                       ...formData,
-                      weight: novaUnidade === "KG" ? "0,000" : "0", // 🟢 Força inteiro se for alternado para ML_G (ML)
+                      weight: novaUnidade === "KG" ? "0,000" : "0",
                     });
                   }}
                   className="bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 px-3 text-[9px] font-black text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors uppercase tracking-wider min-w-[75px] select-none text-center cursor-pointer"
                   title="Clique para alternar a unidade de medida"
                 >
-                  {/* 🟢 Interface limpa refletindo apenas KG ou ML */}
                   {unidadeMedida === "KG" ? "⚖️ KG" : "💧 ML"}
                 </button>
                 <input
@@ -537,6 +635,61 @@ const CreateProductModal = ({
           </form>
         </div>
       </div>
+
+      {/* MODAL DE RECORTE DE IMAGEM */}
+      {isCropOpen && pendingFile && (
+        <div className="fixed inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4 text-center">
+              Ajustar foto do produto
+            </h3>
+
+            <div className="flex justify-center mb-4">
+              <AvatarEditor
+                ref={editorRef}
+                image={pendingFile}
+                width={220}
+                height={220}
+                border={20}
+                borderRadius={12}
+                color={[0, 0, 0, 0.5]}
+                scale={scale}
+                rotate={0}
+              />
+            </div>
+
+            <div className="flex items-center gap-2 mb-5">
+              <ZoomIn className="w-4 h-4 text-gray-400 shrink-0" />
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.01}
+                value={scale}
+                onChange={(e) => setScale(parseFloat(e.target.value))}
+                className="w-full accent-emerald-600"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCancelarRecorte}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600/80 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAplicarRecorte}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isCameraAberta && (
         <ScannerCamera
