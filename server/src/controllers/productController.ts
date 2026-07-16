@@ -1,8 +1,16 @@
 import { Request, Response } from "express";
 import { PrismaClient, ProductUnit } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
+import { v2 as cloudinary } from "cloudinary";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const calcularDiasRestantes = (expirationDate: Date): number => {
   const hoje = new Date();
@@ -87,6 +95,7 @@ export const createProduct = async (
       expirationDate,
       section,
       note,
+      imageBase64,
     } = authReq.body;
 
     if (!expirationDate) {
@@ -98,8 +107,25 @@ export const createProduct = async (
       return;
     }
 
+    const productId = crypto.randomUUID();
+    let imageUrl: string | null = null;
+
+    if (
+      typeof imageBase64 === "string" &&
+      imageBase64.startsWith("data:image")
+    ) {
+      const upload = await cloudinary.uploader.upload(imageBase64, {
+        folder: "products",
+        public_id: `product-${productId}`,
+        overwrite: true,
+        invalidate: true,
+      });
+      imageUrl = upload.secure_url;
+    }
+
     const product = await prisma.product.create({
       data: {
+        productId,
         sku: sku?.toString().trim(),
         name: name?.toString().trim(),
         stockQuantity: parseInt(stockQuantity, 10) || 0,
@@ -109,6 +135,7 @@ export const createProduct = async (
         note: note ? note.toString().trim() : null,
         expirationDate: new Date(expirationDate),
         section: section.toString().trim(),
+        imageUrl,
         userId,
       },
     });
@@ -168,7 +195,23 @@ export const updateProduct = async (
       expirationDate,
       section,
       note,
+      imageBase64,
     } = authReq.body;
+
+    let imageUrl: string | undefined;
+
+    if (
+      typeof imageBase64 === "string" &&
+      imageBase64.startsWith("data:image")
+    ) {
+      const upload = await cloudinary.uploader.upload(imageBase64, {
+        folder: "products",
+        public_id: `product-${id}`,
+        overwrite: true,
+        invalidate: true,
+      });
+      imageUrl = upload.secure_url;
+    }
 
     const updatedProduct = await prisma.product.update({
       where: { productId: id, userId },
@@ -195,6 +238,7 @@ export const updateProduct = async (
         expirationDate:
           expirationDate !== undefined ? new Date(expirationDate) : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
+        ...(imageUrl && { imageUrl }),
       },
     });
 
