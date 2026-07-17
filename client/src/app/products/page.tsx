@@ -16,6 +16,7 @@ import {
   CircleX,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import Header from "@/app/(components)/Header";
 import CreateProductModal from "./CreateProductModal";
 
@@ -57,7 +58,12 @@ const Products = () => {
   }, [searchTerm]);
 
   const handleCreateProduct = async (productData: any) => {
-    await createProduct(productData);
+    try {
+      await createProduct(productData).unwrap();
+      toast.success("Produto cadastrado com sucesso!");
+    } catch (error) {
+      toast.error("Erro ao cadastrar o produto.");
+    }
   };
 
   const formatarPesoMetrico = (
