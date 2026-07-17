@@ -179,9 +179,7 @@ export const updateProduct = async (
     const { userId } = authReq;
 
     if (!userId) {
-      res
-        .status(401)
-        .json({ message: "Acesso negado. Usuário não identificado." });
+      res.status(401).json({ message: "Acesso negado." });
       return;
     }
 
@@ -196,10 +194,20 @@ export const updateProduct = async (
       section,
       note,
       imageBase64,
+      isImageRemoved, // Capturando a flag do frontend
     } = authReq.body;
 
     let imageUrl: string | undefined;
+    let shouldClearImage = false;
 
+    // 1. Lógica de remoção da imagem
+    if (isImageRemoved === true) {
+      const publicId = `products/product-${id}`;
+      await cloudinary.uploader.destroy(publicId);
+      shouldClearImage = true;
+    }
+
+    // 2. Lógica de upload de nova imagem
     if (
       typeof imageBase64 === "string" &&
       imageBase64.startsWith("data:image")
@@ -213,6 +221,7 @@ export const updateProduct = async (
       imageUrl = upload.secure_url;
     }
 
+    // 3. Atualização no Prisma
     const updatedProduct = await prisma.product.update({
       where: { productId: id, userId },
       data: {
@@ -238,7 +247,8 @@ export const updateProduct = async (
         expirationDate:
           expirationDate !== undefined ? new Date(expirationDate) : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
-        ...(imageUrl && { imageUrl }),
+        // Define como null se a imagem foi removida, ou mantém o novo URL se enviado
+        imageUrl: shouldClearImage ? null : imageUrl || undefined,
       },
     });
 
@@ -248,20 +258,17 @@ export const updateProduct = async (
       section !== undefined
     ) {
       const diasRestantes = calcularDiasRestantes(
-        updatedProduct.expirationDate,
+        new Date(updatedProduct.expirationDate),
       );
-
       if (diasRestantes <= 15) {
         const { message, type } = gerarMensagemAlerta(
           updatedProduct.name,
           updatedProduct.section,
           diasRestantes,
         );
-
         const existente = await prisma.notification.findFirst({
           where: { productId: id, userId },
         });
-
         if (existente) {
           await prisma.notification.update({
             where: { id: existente.id },
@@ -283,13 +290,15 @@ export const updateProduct = async (
       data: {
         userId,
         action: "Edição de Produto",
-        details: `Editou o produto SKU: ${sku || updatedProduct.sku}.`,
+        details: `Editou o produto ${updatedProduct.name}.`,
       },
     });
 
     res.json(updatedProduct);
   } catch (error: any) {
-    res.status(500).json({ message: "Erro ao atualizar produto." });
+    res
+      .status(500)
+      .json({ message: "Erro ao atualizar produto.", error: error.message });
   }
 };
 
@@ -303,15 +312,36 @@ export const deleteProduct = async (
     const { userId } = authReq;
 
     if (!userId) {
-      res
-        .status(401)
-        .json({ message: "Acesso negado. Usuário não identificado." });
+      res.status(401).json({ message: "Acesso negado." });
       return;
     }
 
-    await prisma.notification.deleteMany({ where: { productId: id, userId } });
+    // 1. Buscamos o produto ANTES de deletar para verificar se existe imagem
+    const product = await prisma.product.findUnique({
+      where: { productId: id, userId },
+    });
 
-    const deletedProduct = await prisma.product.delete({
+    if (!product) {
+      res.status(404).json({ message: "Produto não encontrado." });
+      return;
+    }
+
+    // 2. Se houver URL de imagem, deletamos do Cloudinary
+    if (product.imageUrl) {
+      try {
+        // O public_id no Cloudinary, pela sua lógica de criação,
+        // é 'products/product-' seguido do ID
+        const publicId = `products/product-${id}`;
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryError) {
+        console.error("Erro ao deletar imagem do Cloudinary:", cloudinaryError);
+        // Não bloqueamos a deleção do banco caso a imagem falhe
+      }
+    }
+
+    // 3. Deletamos as notificações e o produto
+    await prisma.notification.deleteMany({ where: { productId: id, userId } });
+    await prisma.product.delete({
       where: { productId: id, userId },
     });
 
@@ -319,11 +349,11 @@ export const deleteProduct = async (
       data: {
         userId,
         action: "Exclusão de Produto",
-        details: `Excluiu o produto ${deletedProduct.name} (SKU: ${deletedProduct.sku}).`,
+        details: `Excluiu o produto ${product.name} (SKU: ${product.sku}).`,
       },
     });
 
-    res.json({ message: "Produto excluído com sucesso." });
+    res.json({ message: "Produto e imagem excluídos com sucesso." });
   } catch (error: any) {
     res.status(500).json({ message: "Erro ao excluir produto." });
   }

@@ -45,6 +45,7 @@ type ProductFormData = {
   note: string;
   imageUrl?: string;
   imageBase64?: string;
+  isImageRemoved?: boolean;
 };
 
 type CreateProductModalProps = {
@@ -117,6 +118,7 @@ const CreateProductModal = ({
   const [newImageBase64, setNewImageBase64] = useState<string | null>(null);
   const editorRef = useRef<React.ElementRef<typeof AvatarEditor>>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -176,6 +178,7 @@ const CreateProductModal = ({
     setPendingFile(null);
     setIsCropOpen(false);
     setScale(1.2);
+    setIsImageRemoved(false);
   }, [initialData, isOpen]);
 
   useEffect(() => {
@@ -265,6 +268,7 @@ const CreateProductModal = ({
   const handleRemoverImagem = () => {
     setImagePreview(null);
     setNewImageBase64(null);
+    setIsImageRemoved(true); // <--- Adicione isso
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -283,6 +287,7 @@ const CreateProductModal = ({
       unit: unidadeMedida,
       section: formData.category.trim(),
       ...(newImageBase64 && { imageBase64: newImageBase64 }),
+      isImageRemoved,
     };
 
     onCreate(dadosParaEnviar);
