@@ -9,7 +9,7 @@ import Header from "@/app/(components)/Header";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { ptBR } from "@mui/x-data-grid/locales";
 import { useState } from "react";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -62,7 +62,7 @@ const Inventory = () => {
         productId: formData.productId,
         ...formData,
       }).unwrap();
-      toast.success("Informações updated!");
+      toast.success("Informações atualizadas com sucesso!");
       setProductToEdit(null);
     } catch (error) {
       toast.error("Erro ao atualizar.");
@@ -443,8 +443,6 @@ const Inventory = () => {
 
   return (
     <div className="flex flex-col gap-5 p-1 text-gray-900 dark:text-gray-100">
-      <Toaster richColors closeButton />
-
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex flex-col text-gray-900 dark:text-gray-100">
           <Header name="Inventário Geral" />
