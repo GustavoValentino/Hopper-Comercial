@@ -12,6 +12,8 @@ import {
   CheckCircle2Icon,
   PackageIcon,
   ChevronDownIcon,
+  ImageIcon,
+  CircleX,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Header from "@/app/(components)/Header";
@@ -37,6 +39,10 @@ const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(8);
+  const [lightboxProduct, setLightboxProduct] = useState<{
+    imageUrl: string;
+    name: string;
+  } | null>(null);
 
   const {
     data: products,
@@ -187,9 +193,26 @@ const Products = () => {
                           {product.sku || "SEM SKU"}
                         </span>
                       </div>
-                      <div className="shrink-0">{statusBadge}</div>
-                    </div>
 
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {product.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setLightboxProduct({
+                                imageUrl: product.imageUrl,
+                                name: product.name,
+                              })
+                            }
+                            title="Ver imagem do produto"
+                            className="w-6 h-6 rounded-md bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-all cursor-pointer"
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {statusBadge}
+                      </div>
+                    </div>
                     <h3 className="text-sm text-gray-800 dark:text-gray-100 font-bold uppercase leading-snug mb-3 line-clamp-2 min-h-[2.25rem] tracking-tight">
                       {product.name}
                     </h3>
@@ -293,6 +316,36 @@ const Products = () => {
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateProduct}
       />
+      {lightboxProduct && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[70] flex items-center justify-center p-4"
+          onClick={() => setLightboxProduct(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden max-w-xs w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-end p-2">
+              <button
+                type="button"
+                onClick={() => setLightboxProduct(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+              >
+                <CircleX className="w-4 h-4" />
+              </button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={lightboxProduct.imageUrl}
+              alt={lightboxProduct.name}
+              className="w-full aspect-square object-cover"
+            />
+            <p className="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase text-center p-3 tracking-tight">
+              {lightboxProduct.name}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
