@@ -203,13 +203,7 @@ export const updateProduct = async (
     // 1. Lógica de remoção da imagem
     if (isImageRemoved === true) {
       const publicId = `products/product-${id}`;
-      console.log("🔍 DEBUG - Removendo imagem:", {
-        id,
-        isImageRemoved,
-        publicId,
-      });
-      const destroyResult = await cloudinary.uploader.destroy(publicId);
-      console.log("🔍 DEBUG - Resultado do Cloudinary:", destroyResult);
+      await cloudinary.uploader.destroy(publicId);
       shouldClearImage = true;
     }
 
