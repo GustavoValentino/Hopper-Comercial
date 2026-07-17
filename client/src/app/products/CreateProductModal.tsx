@@ -30,6 +30,7 @@ import {
   X,
   ImagePlus,
   ZoomIn,
+  Trash2,
 } from "lucide-react";
 
 type ProductFormData = {
@@ -356,8 +357,10 @@ const CreateProductModal = ({
                     <button
                       type="button"
                       onClick={handleRemoverImagem}
-                      className="px-3 py-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all cursor-pointer"
+                      className="px-3 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                      title="Remover foto"
                     >
+                      <Trash2 className="w-3.5 h-3.5" />
                       Remover
                     </button>
                   )}
