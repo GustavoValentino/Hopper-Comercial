@@ -349,10 +349,12 @@ const CreateProductModal = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 rounded-lg transition-all cursor-pointer"
+                    className="px-3 py-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
                   >
+                    <ImagePlus className="w-3.5 h-3.5" />
                     {imagePreview ? "Trocar foto" : "Adicionar foto"}
                   </button>
+
                   {imagePreview && (
                     <button
                       type="button"
@@ -361,7 +363,7 @@ const CreateProductModal = ({
                       title="Remover foto"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Remover
+                      Excluir
                     </button>
                   )}
                 </div>
