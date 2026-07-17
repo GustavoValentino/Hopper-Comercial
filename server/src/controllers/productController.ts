@@ -194,7 +194,7 @@ export const updateProduct = async (
       section,
       note,
       imageBase64,
-      isImageRemoved, // Capturando a flag do frontend
+      isImageRemoved,
     } = authReq.body;
 
     let imageUrl: string | undefined;
@@ -203,7 +203,13 @@ export const updateProduct = async (
     // 1. Lógica de remoção da imagem
     if (isImageRemoved === true) {
       const publicId = `products/product-${id}`;
-      await cloudinary.uploader.destroy(publicId);
+      console.log("🔍 DEBUG - Removendo imagem:", {
+        id,
+        isImageRemoved,
+        publicId,
+      });
+      const destroyResult = await cloudinary.uploader.destroy(publicId);
+      console.log("🔍 DEBUG - Resultado do Cloudinary:", destroyResult);
       shouldClearImage = true;
     }
 
