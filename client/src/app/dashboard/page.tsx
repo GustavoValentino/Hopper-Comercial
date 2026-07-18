@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useGetDashboardMetricsQuery } from "@/state/api";
 import { useAppSelector } from "@/app/redux";
-import { FileSpreadsheet, Download } from "lucide-react";
+import { FileSpreadsheet, Download, PackageIcon } from "lucide-react";
 import CardEstoqueCritico from "./CardEstoqueCritico";
 import CardAlertaVencimento from "./CardAlertaVencimento";
 import CardResumoGeral from "./CardResumoGeral";
@@ -20,29 +20,7 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 
-const MOCK_PRODUTO_FOTOS: Record<string, string> = {
-  arroz:
-    "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=150&auto=format&fit=crop&q=60",
-  feijão:
-    "https://images.unsplash.com/photo-1551462147-ff29053bfc14?w=150&auto=format&fit=crop&q=60",
-  água: "https://images.unsplash.com/photo-1608885898957-a599fb1698d6?w=150&auto=format&fit=crop&q=60",
-  crystal:
-    "https://images.unsplash.com/photo-1608885898957-a599fb1698d6?w=150&auto=format&fit=crop&q=60",
-  milho:
-    "https://images.unsplash.com/photo-1536584523393-11f2fe453ec9?w=150&auto=format&fit=crop&q=60",
-  padrão:
-    "https://images.unsplash.com/photo-1542838132-92c53300491e?w=150&auto=format&fit=crop&q=60",
-};
-
 const LIMITE_CRITICO = 15;
-
-const obterFotoProduto = (nome: string): string => {
-  const nomeMinusculo = nome.toLowerCase();
-  for (const chave in MOCK_PRODUTO_FOTOS) {
-    if (nomeMinusculo.includes(chave)) return MOCK_PRODUTO_FOTOS[chave];
-  }
-  return MOCK_PRODUTO_FOTOS["padrão"];
-};
 
 const carregarImagemBase64 = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -387,13 +365,17 @@ const Dashboard = () => {
                               className="border-b border-gray-50 dark:border-gray-800/40 last:border-none hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition-colors"
                             >
                               <td className="p-2 flex items-center gap-2.5 max-w-[200px]">
-                                <div className="relative w-8 h-8 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-xs shrink-0 flex items-center justify-center">
-                                  <img
-                                    src={obterFotoProduto(p.name)}
-                                    alt={`Foto ilustrativa de ${p.name}`}
-                                    className="w-full h-full object-cover"
-                                    loading="lazy"
-                                  />
+                                <div className="relative w-8 h-8 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
+                                  {p.imageUrl ? (
+                                    <img
+                                      src={p.imageUrl}
+                                      alt={`Foto de ${p.name}`}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                                  )}
                                 </div>
                                 <div className="truncate">
                                   <p
