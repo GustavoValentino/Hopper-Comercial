@@ -176,7 +176,24 @@ const Dashboard = () => {
     doc.setDrawColor(220, 220, 220);
     doc.line(14, 61.2, 196, 61.2);
 
+    // ── PRÉ-CARREGA AS IMAGENS DOS PRODUTOS (base64) ──
+    const imagensBase64: Record<string, string | null> = {};
+    await Promise.all(
+      dadosFiltrados.map(async (p) => {
+        if (p.imageUrl) {
+          try {
+            imagensBase64[p.productId] = await carregarImagemBase64(p.imageUrl);
+          } catch {
+            imagensBase64[p.productId] = null;
+          }
+        } else {
+          imagensBase64[p.productId] = null;
+        }
+      }),
+    );
+
     const colunasTabela = [
+      "Foto",
       "Produto",
       "Código",
       "Quantidade",
@@ -188,6 +205,7 @@ const Dashboard = () => {
           ? `${Math.round(p.weight * 1000)}g`
           : `${(p.weight || 0).toFixed(3).replace(".", ",")} kg`;
       return [
+        "",
         `${p.name} (${pesoFormatado})`,
         p.sku || "—",
         `${p.stockQuantity} un`,
@@ -212,9 +230,30 @@ const Dashboard = () => {
         fontSize: 8.5,
         textColor: cores.cinzaEscuro,
         cellPadding: 3.5,
+        minCellHeight: 14,
+      },
+      columnStyles: {
+        0: { cellWidth: 16 },
       },
       alternateRowStyles: { fillColor: cores.cinzaClaro },
       margin: { top: 65, right: 14, bottom: 22, left: 14 },
+      didDrawCell: (data) => {
+        if (data.section === "body" && data.column.index === 0) {
+          const produto = dadosFiltrados[data.row.index];
+          const imgBase64 = produto ? imagensBase64[produto.productId] : null;
+
+          if (imgBase64) {
+            const tamanho = 10;
+            const x = data.cell.x + (data.cell.width - tamanho) / 2;
+            const y = data.cell.y + (data.cell.height - tamanho) / 2;
+            try {
+              doc.addImage(imgBase64, "PNG", x, y, tamanho, tamanho);
+            } catch {
+              // Se a imagem falhar ao desenhar, a célula fica em branco
+            }
+          }
+        }
+      },
       didDrawPage: (data) => {
         const pageH = doc.internal.pageSize.height;
         doc.setFillColor(...cores.verde);
