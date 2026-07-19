@@ -48,6 +48,23 @@ const formatarDataTabela = (isoString: string) => {
   return dataObj.toLocaleDateString("pt-BR");
 };
 
+const formatarPesoMetrico = (
+  pesoNumerico: number | undefined | null,
+  unidade: string | undefined | null,
+): string => {
+  if (
+    pesoNumerico === undefined ||
+    pesoNumerico === null ||
+    pesoNumerico === 0
+  ) {
+    return "0,000 kg";
+  }
+  if (unidade === "ML_G") {
+    return `${Math.round(pesoNumerico * 1000)} ml`;
+  }
+  return `${pesoNumerico.toFixed(3).replace(".", ",")} kg`;
+};
+
 const Dashboard = () => {
   const { data: dashboardMetrics } = useGetDashboardMetricsQuery();
   const produtos = dashboardMetrics?.popularProducts || [];
@@ -200,10 +217,7 @@ const Dashboard = () => {
       "Data de Validade",
     ];
     const linhasTabela = dadosFiltrados.map((p) => {
-      const pesoFormatado =
-        p.weight && p.weight < 1
-          ? `${Math.round(p.weight * 1000)}g`
-          : `${(p.weight || 0).toFixed(3).replace(".", ",")} kg`;
+      const pesoFormatado = formatarPesoMetrico(p.weight, p.unit);
       return [
         "",
         `${p.name} (${pesoFormatado})`,
@@ -424,9 +438,7 @@ const Dashboard = () => {
                                     {p.name}
                                   </p>
                                   <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                                    {p.weight && p.weight < 1
-                                      ? `${Math.round(p.weight * 1000)}g`
-                                      : `${(p.weight || 0).toFixed(3).replace(".", ",")} kg`}
+                                    {formatarPesoMetrico(p.weight, p.unit)}
                                   </p>
                                 </div>
                               </td>
