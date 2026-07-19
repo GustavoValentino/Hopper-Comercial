@@ -666,31 +666,47 @@ const Settings = () => {
       )}
 
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent className="max-w-md bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-2xl rounded-2xl p-6 animate-in fade-in zoom-in-95 duration-200">
-          <AlertDialogHeader className="flex flex-col items-center text-center gap-3">
-            <div
-              className={`p-3 rounded-full ${alertConfig.isError ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400" : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"}`}
-            >
+        <AlertDialogContent className="max-w-sm bg-white dark:bg-gray-900 border-0 shadow-2xl rounded-2xl p-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div
+            className={`flex flex-col items-center text-center px-6 pt-8 pb-6 ${
+              alertConfig.isError
+                ? "bg-gradient-to-br from-rose-500 to-rose-600"
+                : "bg-gradient-to-br from-emerald-500 to-emerald-600"
+            }`}
+          >
+            <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mb-3.5">
               {alertConfig.isError ? (
-                <AlertTriangle className="w-8 h-8" />
+                <AlertTriangle className="w-7 h-7 text-white" strokeWidth={2} />
               ) : (
-                <CheckCircle2 className="w-8 h-8" />
+                <CheckCircle2 className="w-7 h-7 text-white" strokeWidth={2} />
               )}
             </div>
-            <AlertDialogTitle className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              {alertConfig.title}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-sm">
+            <AlertDialogHeader className="items-center gap-1">
+              <AlertDialogTitle className="text-base font-bold text-white tracking-tight">
+                {alertConfig.title}
+              </AlertDialogTitle>
+            </AlertDialogHeader>
+          </div>
+
+          <div className="px-6 pt-5 pb-6">
+            <AlertDialogDescription className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed text-center mb-5">
               {alertConfig.description}
             </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 flex justify-center w-full">
-            <AlertDialogAction
-              className={`w-full sm:w-auto px-6 py-2.5 font-bold text-xs uppercase tracking-wider text-white rounded-xl ${alertConfig.isError ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}`}
-            >
-              Entendido
-            </AlertDialogAction>
-          </AlertDialogFooter>
+
+            <AlertDialogFooter className="mx-0 mb-0 p-0 border-t-0 bg-transparent rounded-none justify-center sm:justify-center">
+              <button
+                type="button"
+                onClick={() => setIsAlertOpen(false)}
+                className={`w-full font-bold text-xs uppercase tracking-wider text-white py-3 rounded-xl transition-all shadow-md active:scale-98 cursor-pointer ${
+                  alertConfig.isError
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                }`}
+              >
+                Entendido
+              </button>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </div>
