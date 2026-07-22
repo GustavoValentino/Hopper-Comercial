@@ -81,6 +81,15 @@ export interface UpdateUserFields {
   profileImageBase64: string | null;
 }
 
+export interface ProductLookupResult {
+  name: string;
+  weightGrams: number | null;
+  unit: "KG" | "ML_G";
+  brand: string | null;
+  imageBase64: string | null;
+  source: "cosmos" | "openfoodfacts";
+}
+
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "/api",
@@ -110,6 +119,10 @@ export const api = createApi({
         method: "POST",
         body: userData,
       }),
+    }),
+
+    lookupProductByEan: build.query<ProductLookupResult, string>({
+      query: (ean) => `/products/lookup/${ean}`,
     }),
 
     getDashboardMetrics: build.query<DashboardMetrics, void>({
@@ -265,4 +278,5 @@ export const {
   useMarkAllNotificationsAsReadMutation,
   useDeleteNotificationMutation,
   useGetAuditLogsQuery,
+  useLazyLookupProductByEanQuery,
 } = api;

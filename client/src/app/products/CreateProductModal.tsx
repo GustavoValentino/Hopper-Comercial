@@ -16,6 +16,7 @@ import {
   formatarEntradaPeso,
 } from "@/lib/utils";
 import ScannerCamera from "./ScannerCamera";
+import { useLazyLookupProductByEanQuery } from "@/state/api";
 import {
   BarcodeIcon,
   TagIcon,
@@ -111,6 +112,10 @@ const CreateProductModal = ({
   const [isSelectAberto, setIsSelectAberto] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // ── Hook de Busca Externa (Cosmos / Open Food Facts) ────────
+  const [triggerLookup, { isLoading: isSearchingApi }] =
+    useLazyLookupProductByEanQuery();
+
   // ── Estado da imagem do produto ─────────────────────────────
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -195,6 +200,53 @@ const CreateProductModal = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ── useEffect Automático para Busca via API quando SKU = 13 ──
+  useEffect(() => {
+    const buscarProdutoExterno = async () => {
+      if (formData.sku.length === 13 && validarEAN13(formData.sku)) {
+        try {
+          const resultado = await triggerLookup(formData.sku).unwrap();
+
+          if (resultado) {
+            // Preenche o nome se estiver vazio ou substitui
+            if (resultado.name) {
+              setFormData((prev) => ({ ...prev, name: resultado.name }));
+            }
+
+            // Preenche o peso e unidade caso venha da API
+            if (
+              resultado.weightGrams !== null &&
+              resultado.weightGrams !== undefined
+            ) {
+              const unidadeApi = resultado.unit || "KG";
+              setUnidadeMedida(unidadeApi);
+
+              const pesoFormatado =
+                unidadeApi === "ML_G"
+                  ? String(Math.round(resultado.weightGrams))
+                  : (resultado.weightGrams / 1000).toFixed(3).replace(".", ",");
+
+              setFormData((prev) => ({ ...prev, weight: pesoFormatado }));
+            }
+
+            // Preenche a imagem caso venha convertida em Base64
+            if (resultado.imageBase64) {
+              setImagePreview(resultado.imageBase64);
+              setNewImageBase64(resultado.imageBase64);
+              setIsImageRemoved(false);
+            }
+          }
+        } catch (error) {
+          console.log(
+            "Produto não localizado nas bases externas. Preencha manualmente.",
+          );
+        }
+      }
+    };
+
+    buscarProdutoExterno();
+  }, [formData.sku, triggerLookup]);
+
   const processarEValidarSku = (codigoRaw: string) => {
     const apenasNumeros = codigoRaw.replace(/\D/g, "").slice(0, 13);
     setFormData((prev) => ({ ...prev, sku: apenasNumeros }));
@@ -259,6 +311,7 @@ const CreateProductModal = ({
     setImagePreview(dataUrl);
     setIsCropOpen(false);
     setPendingFile(null);
+    setIsImageRemoved(false);
   };
 
   const handleCancelarRecorte = () => {
@@ -269,7 +322,7 @@ const CreateProductModal = ({
   const handleRemoverImagem = () => {
     setImagePreview(null);
     setNewImageBase64(null);
-    setIsImageRemoved(true); // <--- Adicione isso
+    setIsImageRemoved(true);
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -426,6 +479,11 @@ const CreateProductModal = ({
                     <AlertCircle className="w-3 h-3 text-rose-500" />
                   )}
                   {skuErro}
+                </p>
+              )}
+              {isSearchingApi && (
+                <p className="text-[11px] mt-1.5 text-blue-600 dark:text-blue-400 font-medium animate-pulse">
+                  Buscando informações do produto nas bases oficiais...
                 </p>
               )}
             </div>
