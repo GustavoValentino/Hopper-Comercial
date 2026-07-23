@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
-import https from "https";
 
-const COSMOS_BASE_URL = "https://api.cosmos.bluesoft.com.br/gtins";
-
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+const OSCBR_BASE_URL = "https://gtin.rscsistemas.com.br/api/v3/gtin";
+const OSCBR_TOKEN_URL = "https://gtin.rscsistemas.com.br/api/v3/oauth/token";
 
 type ResultadoBusca = {
   name: string | null;
@@ -11,14 +9,23 @@ type ResultadoBusca = {
   weightGrams: number | null;
   unit: "KG" | "ML_G";
   brand: string | null;
-  source: "cosmos" | "openfoodfacts";
+  source: "oscbr" | "openfoodfacts";
 };
 
-const baixarImagemComoBase64 = async (url: string): Promise<string | null> => {
+let tokenCache: { token: string; expiresAt: number } | null = null;
+
+const baixarImagemComoBase64 = async (
+  url: string,
+  token?: string,
+): Promise<string | null> => {
   try {
-    const response = await fetch(url);
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const response = await fetch(url, { headers });
     if (!response.ok) return null;
-    const contentType = response.headers.get("content-type") || "image/jpeg";
+
+    const contentType = response.headers.get("content-type") || "image/png";
     const arrayBuffer = await response.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
     return `data:${contentType};base64,${base64}`;
@@ -27,41 +34,71 @@ const baixarImagemComoBase64 = async (url: string): Promise<string | null> => {
   }
 };
 
-const buscarNoCosmos = async (ean: string): Promise<ResultadoBusca | null> => {
-  const token = process.env.COSMOS_API_TOKEN;
-  const userAgent = process.env.COSMOS_USER_AGENT;
+const obterTokenOscbr = async (): Promise<string | null> => {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) {
+    return tokenCache.token;
+  }
 
-  if (!token || !userAgent) return null;
+  const user = process.env.OSCBR_USER;
+  const pass = process.env.OSCBR_PASS;
+  if (!user || !pass) return null;
 
   try {
-    const response = await fetch(`${COSMOS_BASE_URL}/${ean}.json`, {
+    const credentials = Buffer.from(`${user}:${pass}`).toString("base64");
+    const response = await fetch(OSCBR_TOKEN_URL, {
+      method: "POST",
       headers: {
-        "X-Cosmos-Token": token,
-        "Content-Type": "application/json",
-        "User-Agent": userAgent,
+        Authorization: `Basic ${credentials}`,
+        Accept: "application/json",
       },
-      // @ts-ignore — Node 18+ aceita agent no fetch nativo via workaround
-      agent: httpsAgent,
     });
 
-    if (!response.ok) {
-      console.log(`Cosmos retornou ${response.status} para EAN ${ean}`);
-      return null;
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as any;
+    const token = data.token || null;
+
+    if (token) {
+      tokenCache = { token, expiresAt: Date.now() + 50 * 60 * 1000 };
     }
+
+    return token;
+  } catch {
+    return null;
+  }
+};
+
+const buscarNaOscbr = async (
+  ean: string,
+): Promise<{ resultado: ResultadoBusca | null; token: string | null }> => {
+  const token = await obterTokenOscbr();
+  if (!token) return { resultado: null, token: null };
+
+  try {
+    const response = await fetch(`${OSCBR_BASE_URL}/${ean}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) return { resultado: null, token };
 
     const data = (await response.json()) as any;
 
     return {
-      name: data.description || null,
-      imageUrl: data.thumbnail || null,
-      weightGrams: data.net_weight || data.gross_weight || null,
-      unit: "KG",
-      brand: data.brand?.name || null,
-      source: "cosmos",
+      resultado: {
+        name: data.nome_acento || data.nome || null,
+        imageUrl: data.link_foto || `${OSCBR_BASE_URL}/${ean}/image`,
+        weightGrams: null,
+        unit: "KG",
+        brand: data.marca || null,
+        source: "oscbr",
+      },
+      token,
     };
-  } catch (err) {
-    console.log("Cosmos erro:", err);
-    return null;
+  } catch {
+    return { resultado: null, token };
   }
 };
 
@@ -122,13 +159,24 @@ export const lookupProductByEan = async (
       return;
     }
 
-    let resultado = await buscarNoCosmos(ean);
+    let tokenUsado: string | null = null;
+    let resultado: ResultadoBusca | null = null;
 
-    if (!resultado || !resultado.name) {
+    const buscaOscbr = await buscarNaOscbr(ean);
+    resultado = buscaOscbr.resultado;
+    tokenUsado = buscaOscbr.token;
+
+    if (resultado?.name) {
+      const dadosOff = await buscarNoOpenFoodFacts(ean);
+      if (dadosOff?.weightGrams) {
+        resultado.weightGrams = dadosOff.weightGrams;
+        resultado.unit = dadosOff.unit;
+      }
+    } else {
       resultado = await buscarNoOpenFoodFacts(ean);
     }
 
-    if (!resultado || !resultado.name) {
+    if (!resultado?.name) {
       res
         .status(404)
         .json({ error: "Produto não encontrado nas bases externas." });
@@ -137,7 +185,10 @@ export const lookupProductByEan = async (
 
     let imageBase64: string | null = null;
     if (resultado.imageUrl) {
-      imageBase64 = await baixarImagemComoBase64(resultado.imageUrl);
+      imageBase64 = await baixarImagemComoBase64(
+        resultado.imageUrl,
+        resultado.source === "oscbr" ? tokenUsado || undefined : undefined,
+      );
     }
 
     res.status(200).json({
