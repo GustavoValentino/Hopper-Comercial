@@ -188,14 +188,14 @@ const CardVencimentosPizza = () => {
       <div
         aria-hidden="true"
         aria-busy="true"
-        className="flex items-center gap-6 h-full w-full animate-pulse"
+        className="flex items-center gap-6 h-full w-full animate-pulse overflow-hidden"
       >
         <div className="w-[160px] h-[160px] rounded-full bg-gray-200 dark:bg-gray-700/40 shrink-0" />
-        <div className="flex-1 flex flex-col gap-2">
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-10 rounded-lg bg-gray-100 dark:bg-gray-700/30"
+              className="h-10 rounded-lg bg-gray-100 dark:bg-gray-700/30 w-full"
             />
           ))}
         </div>
@@ -214,7 +214,7 @@ const CardVencimentosPizza = () => {
   return (
     <section
       aria-label="Distribuição de Vencimentos do Estoque"
-      className="flex flex-col md:flex-row items-center gap-6 h-full w-full"
+      className="flex flex-col md:flex-row items-center gap-6 h-full w-full overflow-hidden"
     >
       <figure
         className="relative w-[160px] h-[160px] shrink-0"
@@ -231,11 +231,11 @@ const CardVencimentosPizza = () => {
         </div>
       </figure>
 
-      <div className="flex-1 w-full flex flex-col gap-2 h-full min-h-0">
+      <div className="flex-1 w-full min-w-0 flex flex-col gap-2 h-full">
         <header className="flex items-center justify-between shrink-0">
           <h3
             aria-live="polite"
-            className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest"
+            className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest truncate mr-2"
           >
             {filtroTag ? `Filtrado: ${filtroTag}` : "Todos os produtos"}
           </h3>
@@ -243,15 +243,15 @@ const CardVencimentosPizza = () => {
             <button
               onClick={() => setFiltroTag(null)}
               aria-label="Limpar filtro de categoria"
-              className="text-[9px] font-bold text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-0.5 rounded-md transition-colors"
+              className="text-[9px] font-bold text-gray-400 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-0.5 rounded-md transition-colors shrink-0"
             >
               limpar ✕
             </button>
           )}
         </header>
 
-        <div className="flex-1 max-h-[160px] overflow-y-auto pr-1 -mr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-          <ul className="flex flex-col gap-2 m-0 p-0 list-none">
+        <div className="flex-1 max-h-[160px] overflow-y-auto overflow-x-hidden pr-1 -mr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+          <ul className="flex flex-col gap-2 m-0 p-0 list-none w-full">
             {listaExibida.length === 0 ? (
               <li className="flex items-center justify-center h-20 text-xs text-gray-400 dark:text-gray-500 italic">
                 Nenhum produto nesta categoria.
@@ -260,19 +260,19 @@ const CardVencimentosPizza = () => {
               listaExibida.map((p) => (
                 <li
                   key={p.productId}
-                  className="flex items-center justify-between p-2.5 rounded-lg transition-all border"
+                  className="flex items-center justify-between p-2.5 rounded-lg transition-all border w-full box-border"
                   style={{ background: p.corBg, borderColor: p.cor + "30" }}
                 >
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate">
+                  <div className="flex flex-col min-w-0 flex-1 mr-2">
+                    <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate block w-full">
                       {p.name}
                     </span>
-                    <span className="text-[9px] text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+                    <span className="text-[9px] text-gray-500 dark:text-gray-400 font-mono mt-0.5 truncate">
                       venc. {p.venc}
                     </span>
                   </div>
                   <span
-                    className="text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ml-2"
+                    className="text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0"
                     style={{ borderColor: p.cor, color: p.cor }}
                     aria-label={`Status: ${p.tag}`}
                   >
