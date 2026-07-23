@@ -1,7 +1,10 @@
-import { Request, Response } from "express";
+import { Request, Response as ExpressResponse } from "express";
 
 const OSCBR_BASE_URL = "https://gtin.rscsistemas.com.br/api/v3/gtin";
 const OSCBR_TOKEN_URL = "https://gtin.rscsistemas.com.br/api/v3/oauth/token";
+
+const TIMEOUT_MS = 5000;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 type ResultadoBusca = {
   name: string | null;
@@ -10,6 +13,55 @@ type ResultadoBusca = {
   unit: "KG" | "ML_G";
   brand: string | null;
   source: "oscbr" | "openfoodfacts";
+};
+
+type RespostaLookup = {
+  name: string;
+  weightGrams: number | null;
+  unit: "KG" | "ML_G";
+  brand: string | null;
+  imageBase64: string | null;
+  source: string;
+};
+
+// ── Cache em memória por EAN ─────────────────────────────────
+const cacheLookup = new Map<
+  string,
+  { dados: RespostaLookup; expiraEm: number }
+>();
+
+const obterDoCache = (ean: string): RespostaLookup | null => {
+  const item = cacheLookup.get(ean);
+  if (!item) return null;
+  if (Date.now() > item.expiraEm) {
+    cacheLookup.delete(ean);
+    return null;
+  }
+  return item.dados;
+};
+
+const salvarNoCache = (ean: string, dados: RespostaLookup) => {
+  cacheLookup.set(ean, { dados, expiraEm: Date.now() + CACHE_TTL_MS });
+};
+
+// ── Fetch com timeout ────────────────────────────────────────
+const fetchComTimeout = async (
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = TIMEOUT_MS,
+): Promise<globalThis.Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 };
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
@@ -22,7 +74,7 @@ const baixarImagemComoBase64 = async (
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const response = await fetch(url, { headers });
+    const response = await fetchComTimeout(url, { headers });
     if (!response.ok) return null;
 
     const contentType = response.headers.get("content-type") || "image/png";
@@ -45,7 +97,7 @@ const obterTokenOscbr = async (): Promise<string | null> => {
 
   try {
     const credentials = Buffer.from(`${user}:${pass}`).toString("base64");
-    const response = await fetch(OSCBR_TOKEN_URL, {
+    const response = await fetchComTimeout(OSCBR_TOKEN_URL, {
       method: "POST",
       headers: {
         Authorization: `Basic ${credentials}`,
@@ -75,7 +127,7 @@ const buscarNaOscbr = async (
   if (!token) return { resultado: null, token: null };
 
   try {
-    const response = await fetch(`${OSCBR_BASE_URL}/${ean}`, {
+    const response = await fetchComTimeout(`${OSCBR_BASE_URL}/${ean}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/json",
@@ -122,7 +174,7 @@ const buscarNoOpenFoodFacts = async (
   ean: string,
 ): Promise<ResultadoBusca | null> => {
   try {
-    const response = await fetch(
+    const response = await fetchComTimeout(
       `https://world.openfoodfacts.org/api/v2/product/${ean}.json`,
     );
 
@@ -149,7 +201,7 @@ const buscarNoOpenFoodFacts = async (
 
 export const lookupProductByEan = async (
   req: Request,
-  res: Response,
+  res: ExpressResponse,
 ): Promise<void> => {
   try {
     const { ean } = req.params;
@@ -159,16 +211,23 @@ export const lookupProductByEan = async (
       return;
     }
 
-    const buscaOscbr = await buscarNaOscbr(ean);
+    // 1. Verifica o cache primeiro
+    const emCache = obterDoCache(ean);
+    if (emCache) {
+      res.status(200).json(emCache);
+      return;
+    }
+
+    // 2. Consultas em paralelo (OSCBR + Open Food Facts)
+    const [buscaOscbr, dadosOff] = await Promise.all([
+      buscarNaOscbr(ean),
+      buscarNoOpenFoodFacts(ean),
+    ]);
+
     let resultado = buscaOscbr.resultado;
     const tokenUsado = buscaOscbr.token;
 
-    // Sempre consulta o Open Food Facts — serve tanto de complemento
-    // (peso, imagem) quanto de fallback total caso o OSCBR não retorne nada.
-    const dadosOff = await buscarNoOpenFoodFacts(ean);
-
     if (resultado?.name) {
-      // Completa o peso apenas se o OSCBR não trouxe
       if (!resultado.weightGrams && dadosOff?.weightGrams) {
         resultado.weightGrams = dadosOff.weightGrams;
         resultado.unit = dadosOff.unit;
@@ -184,7 +243,7 @@ export const lookupProductByEan = async (
       return;
     }
 
-    // 1ª tentativa: imagem do OSCBR
+    // 3. Download de imagem (OSCBR primeiro, Open Food Facts como fallback)
     let imageBase64: string | null = null;
     if (resultado.imageUrl) {
       imageBase64 = await baixarImagemComoBase64(
@@ -193,19 +252,23 @@ export const lookupProductByEan = async (
       );
     }
 
-    // Fallback: se o OSCBR não trouxe imagem válida, tenta a do Open Food Facts
     if (!imageBase64 && dadosOff?.imageUrl) {
       imageBase64 = await baixarImagemComoBase64(dadosOff.imageUrl);
     }
 
-    res.status(200).json({
+    const resposta: RespostaLookup = {
       name: resultado.name,
       weightGrams: resultado.weightGrams,
       unit: resultado.unit,
       brand: resultado.brand,
       imageBase64,
       source: resultado.source,
-    });
+    };
+
+    // 4. Salva no cache para próximas consultas do mesmo EAN
+    salvarNoCache(ean, resposta);
+
+    res.status(200).json(resposta);
   } catch (error: any) {
     res.status(500).json({
       message: "Erro ao consultar bases de produtos externas.",
