@@ -159,21 +159,22 @@ export const lookupProductByEan = async (
       return;
     }
 
-    let tokenUsado: string | null = null;
-    let resultado: ResultadoBusca | null = null;
-
     const buscaOscbr = await buscarNaOscbr(ean);
-    resultado = buscaOscbr.resultado;
-    tokenUsado = buscaOscbr.token;
+    let resultado = buscaOscbr.resultado;
+    const tokenUsado = buscaOscbr.token;
+
+    // Sempre consulta o Open Food Facts — serve tanto de complemento
+    // (peso, imagem) quanto de fallback total caso o OSCBR não retorne nada.
+    const dadosOff = await buscarNoOpenFoodFacts(ean);
 
     if (resultado?.name) {
-      const dadosOff = await buscarNoOpenFoodFacts(ean);
-      if (dadosOff?.weightGrams) {
+      // Completa o peso apenas se o OSCBR não trouxe
+      if (!resultado.weightGrams && dadosOff?.weightGrams) {
         resultado.weightGrams = dadosOff.weightGrams;
         resultado.unit = dadosOff.unit;
       }
     } else {
-      resultado = await buscarNoOpenFoodFacts(ean);
+      resultado = dadosOff;
     }
 
     if (!resultado?.name) {
@@ -183,12 +184,18 @@ export const lookupProductByEan = async (
       return;
     }
 
+    // 1ª tentativa: imagem do OSCBR
     let imageBase64: string | null = null;
     if (resultado.imageUrl) {
       imageBase64 = await baixarImagemComoBase64(
         resultado.imageUrl,
         resultado.source === "oscbr" ? tokenUsado || undefined : undefined,
       );
+    }
+
+    // Fallback: se o OSCBR não trouxe imagem válida, tenta a do Open Food Facts
+    if (!imageBase64 && dadosOff?.imageUrl) {
+      imageBase64 = await baixarImagemComoBase64(dadosOff.imageUrl);
     }
 
     res.status(200).json({
