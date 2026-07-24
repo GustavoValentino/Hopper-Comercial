@@ -67,9 +67,20 @@ export const getNotifications = async (
         const stringData = produto.expirationDate
           .toISOString()
           .substring(0, 10);
-        const expDate = new Date(`${stringData}T00:00:00`);
-        const diasRestantes = Math.ceil(
-          (expDate.getTime() - hoje.getTime()) / 86400000,
+        const expDate = new Date(produto.expirationDate);
+        const ano = expDate.getUTCFullYear();
+        const mes = expDate.getUTCMonth();
+        const dia = expDate.getUTCDate();
+        const dataExpLocal = new Date(ano, mes, dia);
+
+        const hojeLocal = new Date(
+          hoje.getFullYear(),
+          hoje.getMonth(),
+          hoje.getDate(),
+        );
+
+        const diasRestantes = Math.round(
+          (dataExpLocal.getTime() - hojeLocal.getTime()) / 86400000,
         );
 
         let mensagemDias =
