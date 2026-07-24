@@ -86,7 +86,7 @@ model Product {
   category       String
   rating         Float?
   updatedAt      DateTime    @updatedAt
-  expirationDate DateTime    @db.Date
+  expirationDate DateTime    @db.Timestamptz
   lotNumber      String?
   section        String
   note           String?

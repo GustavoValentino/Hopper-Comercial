@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
+import { getHojeNoFusoBrasil, normalizarDataUTC } from "../lib/dateUtils.js";
 
 const prisma = new PrismaClient();
 
@@ -29,12 +30,10 @@ export const getNotifications = async (
 
     const isAdmin = currentUser.role?.toLowerCase() === "admin";
 
-    const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    const hoje = getHojeNoFusoBrasil();
 
-    const limiteCritico = new Date();
-    limiteCritico.setHours(0, 0, 0, 0);
-    limiteCritico.setDate(limiteCritico.getDate() + 5);
+    const limiteCritico = new Date(hoje);
+    limiteCritico.setUTCDate(limiteCritico.getUTCDate() + 5);
 
     const produtosCriticos = await prisma.product.findMany({
       where: {
@@ -64,23 +63,9 @@ export const getNotifications = async (
       });
 
       if (!alertaExistente) {
-        const stringData = produto.expirationDate
-          .toISOString()
-          .substring(0, 10);
-        const expDate = new Date(produto.expirationDate);
-        const ano = expDate.getUTCFullYear();
-        const mes = expDate.getUTCMonth();
-        const dia = expDate.getUTCDate();
-        const dataExpLocal = new Date(ano, mes, dia);
-
-        const hojeLocal = new Date(
-          hoje.getFullYear(),
-          hoje.getMonth(),
-          hoje.getDate(),
-        );
-
+        const expDate = normalizarDataUTC(produto.expirationDate);
         const diasRestantes = Math.round(
-          (dataExpLocal.getTime() - hojeLocal.getTime()) / 86400000,
+          (expDate.getTime() - hoje.getTime()) / 86400000,
         );
 
         let mensagemDias =

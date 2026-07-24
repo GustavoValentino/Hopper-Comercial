@@ -3,6 +3,7 @@ import { PrismaClient, ProductUnit } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
+import { calcularDiasRestantes } from "../lib/dateUtils.js";
 
 const prisma = new PrismaClient();
 
@@ -11,14 +12,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-const calcularDiasRestantes = (expirationDate: Date): number => {
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const venc = new Date(expirationDate);
-  venc.setHours(0, 0, 0, 0);
-  return Math.ceil((venc.getTime() - hoje.getTime()) / 86400000);
-};
 
 const gerarMensagemAlerta = (
   nome: string,
@@ -140,7 +133,7 @@ export const createProduct = async (
       },
     });
 
-    const diasRestantes = calcularDiasRestantes(new Date(expirationDate));
+    const diasRestantes = calcularDiasRestantes(expirationDate);
 
     if (diasRestantes <= 15) {
       const { message, type } = gerarMensagemAlerta(
@@ -258,7 +251,7 @@ export const updateProduct = async (
       section !== undefined
     ) {
       const diasRestantes = calcularDiasRestantes(
-        new Date(updatedProduct.expirationDate),
+        updatedProduct.expirationDate,
       );
       if (diasRestantes <= 15) {
         const { message, type } = gerarMensagemAlerta(
