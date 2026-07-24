@@ -1,7 +1,11 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
-import { getHojeNoFusoBrasil, normalizarDataUTC } from "../lib/dateUtils.js";
+import {
+  getHojeNoFusoBrasil,
+  normalizarDataUTC,
+  calcularDiasRestantes,
+} from "../lib/dateUtils.js";
 
 const prisma = new PrismaClient();
 
@@ -99,7 +103,52 @@ export const getNotifications = async (
       orderBy: { createdAt: "desc" },
     });
 
-    res.status(200).json(notifications);
+    // Join manual com Product (não há relação FK entre Notification e
+    // Product no schema, então buscamos os produtos referenciados em lote
+    // e mesclamos em memória — evita N+1 queries e não exige migration).
+    const productIds = [
+      ...new Set(
+        notifications
+          .map((n) => n.productId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+
+    const produtosRelacionados = productIds.length
+      ? await prisma.product.findMany({
+          where: { productId: { in: productIds } },
+          select: {
+            productId: true,
+            name: true,
+            imageUrl: true,
+            section: true,
+            expirationDate: true,
+          },
+        })
+      : [];
+
+    const produtosPorId = new Map(
+      produtosRelacionados.map((p) => [p.productId, p]),
+    );
+
+    const notificationsComProduto = notifications.map((n) => {
+      const produto = n.productId ? produtosPorId.get(n.productId) : undefined;
+      return {
+        ...n,
+        product: produto
+          ? {
+              name: produto.name,
+              imageUrl: produto.imageUrl,
+              section: produto.section,
+              diasRestantes: produto.expirationDate
+                ? calcularDiasRestantes(produto.expirationDate)
+                : null,
+            }
+          : null,
+      };
+    });
+
+    res.status(200).json(notificationsComProduto);
   } catch (error: any) {
     res
       .status(500)
