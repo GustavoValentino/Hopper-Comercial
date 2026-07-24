@@ -112,6 +112,8 @@ const CreateProductModal = ({
   const [isSelectAberto, setIsSelectAberto] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const isEditing = !!initialData;
+
   // ── Hook de Busca Externa (Cosmos / Open Food Facts) ────────
   const [triggerLookup, { isLoading: isSearchingApi }] =
     useLazyLookupProductByEanQuery();
@@ -203,17 +205,18 @@ const CreateProductModal = ({
   // ── useEffect Automático para Busca via API quando SKU = 13 ──
   useEffect(() => {
     const buscarProdutoExterno = async () => {
+      // ⛔ TRAVA CRUCIAL: Se estiver no modo de edição, não dispara buscas externas automáticas
+      if (isEditing) return;
+
       if (formData.sku.length === 13 && validarEAN13(formData.sku)) {
         try {
           const resultado = await triggerLookup(formData.sku).unwrap();
 
           if (resultado) {
-            // Preenche o nome se estiver vazio ou substitui
             if (resultado.name) {
               setFormData((prev) => ({ ...prev, name: resultado.name }));
             }
 
-            // Preenche o peso e unidade caso venha da API
             if (
               resultado.weightGrams !== null &&
               resultado.weightGrams !== undefined
@@ -229,7 +232,6 @@ const CreateProductModal = ({
               setFormData((prev) => ({ ...prev, weight: pesoFormatado }));
             }
 
-            // Preenche a imagem caso venha convertida em Base64
             if (resultado.imageBase64) {
               setImagePreview(resultado.imageBase64);
               setNewImageBase64(resultado.imageBase64);
@@ -245,7 +247,7 @@ const CreateProductModal = ({
     };
 
     buscarProdutoExterno();
-  }, [formData.sku, triggerLookup]);
+  }, [formData.sku, triggerLookup, isEditing]);
 
   const processarEValidarSku = (codigoRaw: string) => {
     const apenasNumeros = codigoRaw.replace(/\D/g, "").slice(0, 13);
@@ -354,8 +356,6 @@ const CreateProductModal = ({
     "block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5";
   const inputCssStyles =
     "block w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/80 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium";
-
-  const isEditing = !!initialData;
 
   const labelCategoriaAtual =
     SECOES_SUPERMERCADO.flatMap((g) => g.itens).find(
