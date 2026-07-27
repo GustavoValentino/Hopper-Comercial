@@ -31,6 +31,18 @@ import {
 
 const LIMITE_CRITICO = 15;
 
+const JANELA_REBAIXA_POR_CATEGORIA: Record<string, number> = {
+  "Carnes e Aves": 3,
+  Laticínios: 3,
+  Padaria: 3,
+  Hortifruti: 1,
+};
+
+const JANELA_REBAIXA_PADRAO = 15;
+
+const getJanelaRebaixa = (categoria: string): number =>
+  JANELA_REBAIXA_POR_CATEGORIA[categoria] ?? JANELA_REBAIXA_PADRAO;
+
 const carregarImagemBase64 = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
@@ -74,9 +86,6 @@ const formatarPesoMetrico = (
   return `${pesoNumerico.toFixed(3).replace(".", ",")} kg`;
 };
 
-/** Rótulo curto e cor da urgência, a partir dos dias restantes
- * (negativo = já vencido). Mesma linguagem visual usada nas
- * notificações, para manter consistência em todo o app. */
 const getUrgenciaLabel = (dias: number) => {
   if (dias < 0)
     return {
@@ -165,9 +174,6 @@ const Dashboard = () => {
   const produtosParaVisualizar = dadosFiltrados.slice(0, 5);
   const userName = user?.name || user?.email?.split("@")[0] || "Operador";
 
-  // ── Produtos para rebaixa ─────────────────────────────────────
-  // Todos os produtos vencendo em até 15 dias (incluindo já vencidos),
-  // ordenados do mais urgente para o menos urgente.
   const produtosParaRebaixa = useMemo(() => {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -180,11 +186,17 @@ const Dashboard = () => {
         const dias = Math.ceil(
           (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
         );
-        return { produto, dias };
+        const janela = getJanelaRebaixa(produto.category);
+        return { produto, dias, janela };
       })
       .filter(
-        (item): item is { produto: (typeof produtos)[number]; dias: number } =>
-          item !== null && item.dias <= 15,
+        (
+          item,
+        ): item is {
+          produto: (typeof produtos)[number];
+          dias: number;
+          janela: number;
+        } => item !== null && item.dias <= item.janela,
       )
       .sort((a, b) => a.dias - b.dias);
   }, [produtos]);
@@ -265,7 +277,6 @@ const Dashboard = () => {
     doc.setDrawColor(220, 220, 220);
     doc.line(14, 61.2, 196, 61.2);
 
-    // ── PRÉ-CARREGA AS IMAGENS DOS PRODUTOS (base64) ──
     const imagensBase64: Record<string, string | null> = {};
     await Promise.all(
       dadosFiltrados.map(async (p) => {
@@ -335,7 +346,7 @@ const Dashboard = () => {
             try {
               doc.addImage(imgBase64, "PNG", x, y, tamanho, tamanho);
             } catch {
-              // Se a imagem falhar ao desenhar, a célula fica em branco
+              // noop
             }
           }
         }
@@ -386,8 +397,6 @@ const Dashboard = () => {
             )}
           </div>
 
-          {/* Produtos para rebaixa — lista todos os itens vencendo em
-              até 15 dias, incentivando ação imediata sobre o estoque. */}
           <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/60 flex-1 min-h-0 flex flex-col">
             {isLoadingMetrics ? (
               <div className="space-y-2 flex-1">
@@ -409,9 +418,9 @@ const Dashboard = () => {
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
                   {produtosParaRebaixa.length}{" "}
                   {produtosParaRebaixa.length === 1
-                    ? "produto vence"
-                    : "produtos vencem"}{" "}
-                  nos próximos 15 dias
+                    ? "produto identificado"
+                    : "produtos identificados"}{" "}
+                  — prazo calculado pela janela ideal de cada categoria
                 </p>
 
                 <div className="flex flex-col gap-2 flex-1 overflow-y-auto max-h-[170px] pr-1 -mr-1">
@@ -452,11 +461,18 @@ const Dashboard = () => {
                           >
                             {produto.name}
                           </p>
-                          <span
-                            className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
-                          >
-                            {urgencia.texto}
-                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span
+                              className={`inline-block text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                            >
+                              {urgencia.texto}
+                            </span>
+                            {produto.category && (
+                              <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">
+                                · {produto.category}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -484,7 +500,8 @@ const Dashboard = () => {
                     Tudo sob controle
                   </p>
                   <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    Nenhum produto vence nos próximos 15 dias.
+                    Nenhum produto está dentro da janela de rebaixa da sua
+                    categoria.
                   </p>
                 </div>
               </div>
