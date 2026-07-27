@@ -1,9 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useGetDashboardMetricsQuery } from "@/state/api";
 import { useAppSelector } from "@/app/redux";
-import { FileSpreadsheet, Download, PackageIcon } from "lucide-react";
+import Link from "next/link";
+import {
+  FileSpreadsheet,
+  Download,
+  PackageIcon,
+  Flame,
+  CheckCircle2,
+  ArrowRight,
+  ImageOff,
+} from "lucide-react";
 import CardEstoqueCritico from "./CardEstoqueCritico";
 import CardAlertaVencimento from "./CardAlertaVencimento";
 import CardResumoGeral from "./CardResumoGeral";
@@ -65,8 +74,43 @@ const formatarPesoMetrico = (
   return `${pesoNumerico.toFixed(3).replace(".", ",")} kg`;
 };
 
+/** Rótulo curto e cor da urgência, a partir dos dias restantes
+ * (negativo = já vencido). Mesma linguagem visual usada nas
+ * notificações, para manter consistência em todo o app. */
+const getUrgenciaLabel = (dias: number) => {
+  if (dias < 0)
+    return {
+      texto: `Vencido há ${Math.abs(dias)} ${Math.abs(dias) === 1 ? "dia" : "dias"}`,
+      classes:
+        "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
+    };
+  if (dias === 0)
+    return {
+      texto: "Vence hoje",
+      classes:
+        "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400",
+    };
+  if (dias === 1)
+    return {
+      texto: "Vence amanhã",
+      classes:
+        "bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400",
+    };
+  if (dias <= 5)
+    return {
+      texto: `Vence em ${dias} dias`,
+      classes:
+        "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400",
+    };
+  return {
+    texto: `Vence em ${dias} dias`,
+    classes: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+  };
+};
+
 const Dashboard = () => {
-  const { data: dashboardMetrics } = useGetDashboardMetricsQuery();
+  const { data: dashboardMetrics, isLoading: isLoadingMetrics } =
+    useGetDashboardMetricsQuery();
   const produtos = dashboardMetrics?.popularProducts || [];
   const user = useAppSelector((state) => state.auth.user);
 
@@ -74,6 +118,10 @@ const Dashboard = () => {
   const [isDateLoading, setIsDateLoading] = useState(true);
   const [isModalAberto, setIsModalAberto] = useState(false);
   const [filtroExportacao, setFiltroExportacao] = useState("todos");
+  const [imagensComErro, setImagensComErro] = useState<Set<string>>(new Set());
+
+  const marcarErroImagem = (id: string) =>
+    setImagensComErro((prev) => new Set(prev).add(id));
 
   useEffect(() => {
     const options: Intl.DateTimeFormatOptions = {
@@ -116,6 +164,30 @@ const Dashboard = () => {
   const dadosFiltrados = obterProdutosFiltrados();
   const produtosParaVisualizar = dadosFiltrados.slice(0, 5);
   const userName = user?.name || user?.email?.split("@")[0] || "Operador";
+
+  // ── Produtos para rebaixa ─────────────────────────────────────
+  // Todos os produtos vencendo em até 15 dias (incluindo já vencidos),
+  // ordenados do mais urgente para o menos urgente.
+  const produtosParaRebaixa = useMemo(() => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    return produtos
+      .map((produto) => {
+        if (!produto.expirationDate) return null;
+        const stringDataPura = produto.expirationDate.substring(0, 10);
+        const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+        const dias = Math.ceil(
+          (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+        );
+        return { produto, dias };
+      })
+      .filter(
+        (item): item is { produto: (typeof produtos)[number]; dias: number } =>
+          item !== null && item.dias <= 15,
+      )
+      .sort((a, b) => a.dias - b.dias);
+  }, [produtos]);
 
   const handleConfirmarExportacao = async () => {
     if (dadosFiltrados.length === 0) {
@@ -297,32 +369,133 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col gap-6 pb-6">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-1 bg-gradient-to-br from-[#006938] to-[#004d29] text-white p-6 rounded-xl shadow-sm min-h-[220px] flex flex-col justify-between">
+        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 min-h-[320px] flex flex-col">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
+            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
               Olá, {userName}! 👋
             </h1>
             {isDateLoading ? (
               <div
-                className="h-3 w-32 bg-white/20 rounded animate-pulse mt-1.5"
+                className="h-3 w-32 bg-gray-100 dark:bg-gray-700 rounded animate-pulse mt-1.5"
                 aria-hidden="true"
               />
             ) : (
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-green-200/90 mt-1 animate-in fade-in duration-300">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-1 animate-in fade-in duration-300">
                 {formattedDate}
               </p>
             )}
-            <p className="text-green-100/80 text-xs mt-3 border-t border-white/10 pt-3 leading-relaxed">
-              Monitore a validade e a quantidade de produtos em tempo real antes
-              de consolidar e transferir os dados para sua planilha local.
-            </p>
+          </div>
+
+          {/* Produtos para rebaixa — lista todos os itens vencendo em
+              até 15 dias, incentivando ação imediata sobre o estoque. */}
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/60 flex-1 min-h-0 flex flex-col">
+            {isLoadingMetrics ? (
+              <div className="space-y-2 flex-1">
+                <div className="h-4 w-3/4 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" />
+                <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
+                <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
+              </div>
+            ) : produtosParaRebaixa.length > 0 ? (
+              <>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Flame
+                    className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0"
+                    aria-hidden="true"
+                  />
+                  <p className="text-sm font-black text-rose-600 dark:text-rose-400 tracking-tight">
+                    Peça a rebaixa agora mesmo!
+                  </p>
+                </div>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
+                  {produtosParaRebaixa.length}{" "}
+                  {produtosParaRebaixa.length === 1
+                    ? "produto vence"
+                    : "produtos vencem"}{" "}
+                  nos próximos 15 dias
+                </p>
+
+                <div className="flex flex-col gap-2 flex-1 overflow-y-auto max-h-[170px] pr-1 -mr-1">
+                  {produtosParaRebaixa.slice(0, 4).map(({ produto, dias }) => {
+                    const urgencia = getUrgenciaLabel(dias);
+                    const semImagem =
+                      !produto.imageUrl ||
+                      imagensComErro.has(produto.productId);
+
+                    return (
+                      <div
+                        key={produto.productId}
+                        className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/40 rounded-xl p-2"
+                      >
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+                          {!semImagem ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={produto.imageUrl}
+                              alt={produto.name}
+                              className="w-full h-full object-cover"
+                              onError={() =>
+                                marcarErroImagem(produto.productId)
+                              }
+                            />
+                          ) : (
+                            <ImageOff
+                              className="w-4 h-4 text-gray-300 dark:text-gray-600"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate"
+                            title={produto.name}
+                          >
+                            {produto.name}
+                          </p>
+                          <span
+                            className={`inline-block mt-0.5 text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                          >
+                            {urgencia.texto}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Link
+                  href="/products"
+                  className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 shrink-0"
+                >
+                  Ver produtos
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </Link>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl p-3 flex-1">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                  <CheckCircle2
+                    className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-gray-800 dark:text-gray-100">
+                    Tudo sob controle
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    Nenhum produto vence nos próximos 15 dias.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mt-4">
             <Dialog open={isModalAberto} onOpenChange={setIsModalAberto}>
               <DialogTrigger asChild>
                 <button
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#4a6357] text-white hover:bg-[#00522c] focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer w-full justify-center"
                   aria-label="Abrir modal de geração de relatório PDF"
                 >
                   <FileSpreadsheet className="w-4 h-4" aria-hidden="true" />
