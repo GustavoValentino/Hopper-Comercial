@@ -380,26 +380,26 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col gap-6 pb-6">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 min-h-[320px] flex flex-col">
+        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 min-h-[320px] flex flex-col justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
-              Olá, {userName}! 👋
-            </h1>
-            {isDateLoading ? (
-              <div
-                className="h-3 w-32 bg-gray-100 dark:bg-gray-700 rounded animate-pulse mt-1.5"
-                aria-hidden="true"
-              />
-            ) : (
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-1 animate-in fade-in duration-300">
-                {formattedDate}
-              </p>
-            )}
-          </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                Olá, {userName}! 👋
+              </h1>
+              {isDateLoading ? (
+                <div
+                  className="h-3 w-32 bg-gray-100 dark:bg-gray-700 rounded animate-pulse mt-1.5"
+                  aria-hidden="true"
+                />
+              ) : (
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mt-1 animate-in fade-in duration-300">
+                  {formattedDate}
+                </p>
+              )}
+            </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/60 flex-1 min-h-0 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-1.5 min-w-0">
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/60 flex flex-col">
+              <div className="flex items-center gap-1.5 mb-3">
                 {!isLoadingMetrics && produtosParaRebaixa.length > 0 && (
                   <>
                     <Flame
@@ -413,267 +413,270 @@ const Dashboard = () => {
                 )}
               </div>
 
-              <Dialog open={isModalAberto} onOpenChange={setIsModalAberto}>
-                <DialogTrigger asChild>
-                  <button
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
-                    aria-label="Abrir modal de geração de relatório PDF"
-                  >
-                    <FileSpreadsheet
-                      className="w-3.5 h-3.5"
+              {isLoadingMetrics ? (
+                <div className="space-y-2 flex-1">
+                  <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
+                  <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
+                </div>
+              ) : produtosParaRebaixa.length > 0 ? (
+                <>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">
+                    {produtosParaRebaixa.length}{" "}
+                    {produtosParaRebaixa.length === 1
+                      ? "produto identificado"
+                      : "produtos identificados"}
+                  </p>
+
+                  <div className="flex flex-col gap-2 overflow-y-auto max-h-[170px] pr-1 -mr-1">
+                    {produtosParaRebaixa
+                      .slice(0, 4)
+                      .map(({ produto, dias }) => {
+                        const urgencia = getUrgenciaLabel(dias);
+                        const semImagem =
+                          !produto.imageUrl ||
+                          imagensComErro.has(produto.productId);
+
+                        return (
+                          <div
+                            key={produto.productId}
+                            className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/40 rounded-xl p-2"
+                          >
+                            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+                              {!semImagem ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={produto.imageUrl}
+                                  alt={produto.name}
+                                  className="w-full h-full object-cover"
+                                  onError={() =>
+                                    marcarErroImagem(produto.productId)
+                                  }
+                                />
+                              ) : (
+                                <ImageOff
+                                  className="w-4 h-4 text-gray-300 dark:text-gray-600"
+                                  aria-hidden="true"
+                                />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p
+                                className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate"
+                                title={produto.name}
+                              >
+                                {produto.name}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                <span
+                                  className={`inline-block text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                                >
+                                  {urgencia.texto}
+                                </span>
+                                {produto.category && (
+                                  <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">
+                                    · {produto.category}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl p-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                    <CheckCircle2
+                      className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
                       aria-hidden="true"
                     />
-                    Gerar Relatório
-                  </button>
-                </DialogTrigger>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-100">
+                      Tudo sob controle
+                    </p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                      Nenhum produto está dentro da janela de rebaixa da sua
+                      categoria.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
-                <DialogContent className="sm:max-w-[600px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl rounded-xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                      Configurar Exportação de Dados
-                    </DialogTitle>
-                    <DialogDescription className="text-xs text-gray-400 dark:text-gray-500">
-                      Selecione o escopo do inventário que você deseja baixar
-                      para atualizar sua planilha ou imprimir para controle
-                      físico.
-                    </DialogDescription>
-                  </DialogHeader>
+          {/* Rodapé atualizado: Botão Gerar Relatório e Botão Ver Produtos alinhados à direita */}
+          <div className="mt-4 pt-3 flex items-center justify-end gap-2 shrink-0">
+            <Dialog open={isModalAberto} onOpenChange={setIsModalAberto}>
+              <DialogTrigger asChild>
+                <button
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+                  aria-label="Abrir modal de geração de relatório PDF"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" aria-hidden="true" />
+                  Gerar Relatório
+                </button>
+              </DialogTrigger>
 
-                  <div className="my-5">
-                    <span
-                      className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
-                      id="filtro-label"
-                    >
-                      Filtrar registros por:
+              <DialogContent className="sm:max-w-[600px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl rounded-xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
+                <DialogHeader>
+                  <DialogTitle className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                    Configurar Exportação de Dados
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-gray-400 dark:text-gray-500">
+                    Selecione o escopo do inventário que você deseja baixar para
+                    atualizar sua planilha ou imprimir para controle físico.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="my-5">
+                  <span
+                    className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
+                    id="filtro-label"
+                  >
+                    Filtrar registros por:
+                  </span>
+                  <div
+                    className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+                    role="group"
+                    aria-labelledby="filtro-label"
+                  >
+                    {[
+                      { id: "todos", label: "Tudo" },
+                      { id: "vencidos", label: "Vencidos" },
+                      { id: "proximos", label: "Próx. 15 dias" },
+                      { id: "criticos", label: "Estoque Crítico" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setFiltroExportacao(opt.id)}
+                        aria-pressed={filtroExportacao === opt.id}
+                        className={`px-3 py-2 text-xs font-bold border rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] ${
+                          filtroExportacao === opt.id
+                            ? "bg-[#006938] text-white border-[#006938] shadow-sm"
+                            : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
+                  <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+                    <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                      Prévia dos Dados (Primeiros 5)
                     </span>
-                    <div
-                      className="grid grid-cols-2 sm:grid-cols-4 gap-2"
-                      role="group"
-                      aria-labelledby="filtro-label"
+                    <span
+                      className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
+                      aria-live="polite"
                     >
-                      {[
-                        { id: "todos", label: "Tudo" },
-                        { id: "vencidos", label: "Vencidos" },
-                        { id: "proximos", label: "Próx. 15 dias" },
-                        { id: "criticos", label: "Estoque Crítico" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => setFiltroExportacao(opt.id)}
-                          aria-pressed={filtroExportacao === opt.id}
-                          className={`px-3 py-2 text-xs font-bold border rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] ${
-                            filtroExportacao === opt.id
-                              ? "bg-[#006938] text-white border-[#006938] shadow-sm"
-                              : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
+                      {dadosFiltrados.length}{" "}
+                      {dadosFiltrados.length === 1
+                        ? "item encontrado"
+                        : "itens encontrados"}
+                    </span>
                   </div>
 
-                  <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
-                    <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                      <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                        Prévia dos Dados (Primeiros 5)
-                      </span>
-                      <span
-                        className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
-                        aria-live="polite"
-                      >
-                        {dadosFiltrados.length}{" "}
-                        {dadosFiltrados.length === 1
-                          ? "item encontrado"
-                          : "itens encontrados"}
-                      </span>
-                    </div>
-
-                    <div className="p-2 overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
-                            <th className="p-2">Produto</th>
-                            <th className="p-2">Código</th>
-                            <th className="p-2">Qtd</th>
-                            <th className="p-2">Validade</th>
+                  <div className="p-2 overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
+                          <th className="p-2">Produto</th>
+                          <th className="p-2">Código</th>
+                          <th className="p-2">Qtd</th>
+                          <th className="p-2">Validade</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-gray-700 dark:text-gray-300">
+                        {produtosParaVisualizar.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="p-4 text-center text-gray-400 dark:text-gray-500 italic"
+                            >
+                              Nenhum produto corresponde ao filtro selecionado.
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody className="text-xs text-gray-700 dark:text-gray-300">
-                          {produtosParaVisualizar.length === 0 ? (
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="p-4 text-center text-gray-400 dark:text-gray-500 italic"
-                              >
-                                Nenhum produto corresponde ao filtro
-                                selecionado.
+                        ) : (
+                          produtosParaVisualizar.map((p) => (
+                            <tr
+                              key={p.productId}
+                              className="border-b border-gray-50 dark:border-gray-800/40 last:border-none hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition-colors"
+                            >
+                              <td className="p-2 flex items-center gap-2.5 max-w-[200px]">
+                                <div className="relative w-8 h-8 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
+                                  {p.imageUrl ? (
+                                    <img
+                                      src={p.imageUrl}
+                                      alt={`Foto de ${p.name}`}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                                  )}
+                                </div>
+                                <div className="truncate">
+                                  <p
+                                    className="font-semibold text-gray-800 dark:text-gray-200 truncate"
+                                    title={p.name}
+                                  >
+                                    {p.name}
+                                  </p>
+                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
+                                    {formatarPesoMetrico(p.weight, p.unit)}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="p-2 font-mono text-gray-500 dark:text-gray-400 text-[11px]">
+                                {p.sku || "—"}
+                              </td>
+                              <td className="p-2 font-bold">
+                                {p.stockQuantity} un
+                              </td>
+                              <td className="p-2 text-gray-500 dark:text-gray-400">
+                                {formatarDataTabela(p.expirationDate ?? "")}
                               </td>
                             </tr>
-                          ) : (
-                            produtosParaVisualizar.map((p) => (
-                              <tr
-                                key={p.productId}
-                                className="border-b border-gray-50 dark:border-gray-800/40 last:border-none hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition-colors"
-                              >
-                                <td className="p-2 flex items-center gap-2.5 max-w-[200px]">
-                                  <div className="relative w-8 h-8 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
-                                    {p.imageUrl ? (
-                                      <img
-                                        src={p.imageUrl}
-                                        alt={`Foto de ${p.name}`}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                      />
-                                    ) : (
-                                      <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
-                                    )}
-                                  </div>
-                                  <div className="truncate">
-                                    <p
-                                      className="font-semibold text-gray-800 dark:text-gray-200 truncate"
-                                      title={p.name}
-                                    >
-                                      {p.name}
-                                    </p>
-                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                                      {formatarPesoMetrico(p.weight, p.unit)}
-                                    </p>
-                                  </div>
-                                </td>
-                                <td className="p-2 font-mono text-gray-500 dark:text-gray-400 text-[11px]">
-                                  {p.sku || "—"}
-                                </td>
-                                <td className="p-2 font-bold">
-                                  {p.stockQuantity} un
-                                </td>
-                                <td className="p-2 text-gray-500 dark:text-gray-400">
-                                  {formatarDataTabela(p.expirationDate ?? "")}
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-
-                  <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
-                    <button
-                      onClick={() => setIsModalAberto(false)}
-                      className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={handleConfirmarExportacao}
-                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] focus-visible:ring-offset-2"
-                    >
-                      <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                      Baixar PDF
-                    </button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {isLoadingMetrics ? (
-              <div className="space-y-2 flex-1">
-                <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
-                <div className="h-14 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />
-              </div>
-            ) : produtosParaRebaixa.length > 0 ? (
-              <>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">
-                  {produtosParaRebaixa.length}{" "}
-                  {produtosParaRebaixa.length === 1
-                    ? "produto identificado"
-                    : "produtos identificados"}
-                </p>
-
-                <div className="flex flex-col gap-2 flex-1 overflow-y-auto max-h-[170px] pr-1 -mr-1">
-                  {produtosParaRebaixa.slice(0, 4).map(({ produto, dias }) => {
-                    const urgencia = getUrgenciaLabel(dias);
-                    const semImagem =
-                      !produto.imageUrl ||
-                      imagensComErro.has(produto.productId);
-
-                    return (
-                      <div
-                        key={produto.productId}
-                        className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/40 rounded-xl p-2"
-                      >
-                        <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
-                          {!semImagem ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={produto.imageUrl}
-                              alt={produto.name}
-                              className="w-full h-full object-cover"
-                              onError={() =>
-                                marcarErroImagem(produto.productId)
-                              }
-                            />
-                          ) : (
-                            <ImageOff
-                              className="w-4 h-4 text-gray-300 dark:text-gray-600"
-                              aria-hidden="true"
-                            />
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate"
-                            title={produto.name}
-                          >
-                            {produto.name}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                            <span
-                              className={`inline-block text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
-                            >
-                              {urgencia.texto}
-                            </span>
-                            {produto.category && (
-                              <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">
-                                · {produto.category}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
 
-                <Link
-                  href="/products"
-                  className="mt-3 flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg px-3 py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 shrink-0"
-                >
-                  Ver produtos
-                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                </Link>
-              </>
-            ) : (
-              <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-xl p-3 flex-1">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                  <CheckCircle2
-                    className="w-5 h-5 text-emerald-600 dark:text-emerald-400"
-                    aria-hidden="true"
-                  />
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                  <button
+                    onClick={() => setIsModalAberto(false)}
+                    className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmarExportacao}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] focus-visible:ring-offset-2"
+                  >
+                    <Download className="w-3.5 h-3.5" aria-hidden="true" />
+                    Baixar PDF
+                  </button>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-gray-800 dark:text-gray-100">
-                    Tudo sob controle
-                  </p>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                    Nenhum produto está dentro da janela de rebaixa da sua
-                    categoria.
-                  </p>
-                </div>
-              </div>
-            )}
+              </DialogContent>
+            </Dialog>
+
+            <Link
+              href="/products"
+              className="group inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 shadow-sm"
+            >
+              <span>Ver produtos</span>
+              <ArrowRight
+                className="w-3.5 h-3.5 transform transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </Link>
           </div>
         </div>
 
