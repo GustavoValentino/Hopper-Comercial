@@ -70,7 +70,7 @@ const CardAlertaVencimento = () => {
   return (
     <section
       aria-label="Cronograma de Vencimentos do Estoque"
-      className="flex flex-col justify-between h-full bg-white dark:bg-gray-800 border border-gray-100/70 dark:border-gray-700/50 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60"
+      className="flex flex-col justify-between h-full min-h-0 bg-white dark:bg-gray-800 border border-gray-100/70 dark:border-gray-700/50 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 overflow-hidden"
     >
       {isLoading ? (
         <div
@@ -96,7 +96,7 @@ const CardAlertaVencimento = () => {
         </div>
       ) : (
         <>
-          <header className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-gray-50 dark:border-gray-700/50">
+          <header className="px-6 pt-5 pb-4 flex items-center justify-between border-b border-gray-50 dark:border-gray-700/50 shrink-0">
             <div className="flex flex-col">
               <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight">
                 Cronograma de Vencimentos
@@ -113,7 +113,7 @@ const CardAlertaVencimento = () => {
             </span>
           </header>
 
-          <div className="px-6 mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-6 mt-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
             <div>
               <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                 Atenção nos Próximos 30 dias

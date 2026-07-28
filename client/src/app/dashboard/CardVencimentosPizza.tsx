@@ -214,7 +214,7 @@ const CardVencimentosPizza = () => {
   return (
     <section
       aria-label="Distribuição de Vencimentos do Estoque"
-      className="flex flex-col md:flex-row items-center gap-6 h-full w-full overflow-hidden"
+      className="flex flex-col md:flex-row items-center gap-6 h-full min-h-0 w-full overflow-hidden"
     >
       <figure
         className="relative w-[160px] h-[160px] shrink-0"
@@ -231,7 +231,7 @@ const CardVencimentosPizza = () => {
         </div>
       </figure>
 
-      <div className="flex-1 w-full min-w-0 flex flex-col gap-2 h-full">
+      <div className="flex-1 w-full min-w-0 min-h-0 flex flex-col gap-2 h-full">
         <header className="flex items-center justify-between shrink-0">
           <h3
             aria-live="polite"
@@ -250,7 +250,7 @@ const CardVencimentosPizza = () => {
           )}
         </header>
 
-        <div className="flex-1 max-h-[160px] overflow-y-auto overflow-x-hidden pr-1 -mr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+        <div className="flex-1 min-h-0 max-h-[160px] overflow-y-auto overflow-x-hidden pr-1 -mr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 dark:[&::-webkit-scrollbar-thumb]:bg-gray-700 [&::-webkit-scrollbar-thumb]:rounded-full">
           <ul className="flex flex-col gap-2 m-0 p-0 list-none w-full">
             {listaExibida.length === 0 ? (
               <li className="flex items-center justify-center h-20 text-xs text-gray-400 dark:text-gray-500 italic">

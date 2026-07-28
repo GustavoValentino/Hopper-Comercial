@@ -39,12 +39,10 @@ const CardResumoGeral = () => {
     let totalVencidos = 0;
 
     produtos.forEach((produto) => {
-      // 1. Verificação volumétrica do estoque mínimo
       if (produto.stockQuantity <= LIMITE_CRITICO) {
         totalEstoqueCritico++;
       }
 
-      // 2. Verificação imune a fusos horários da validade
       if (produto.expirationDate) {
         const stringDataPura = produto.expirationDate.substring(0, 10);
         const dataValidade = new Date(`${stringDataPura}T00:00:00`);
@@ -91,7 +89,7 @@ const CardResumoGeral = () => {
   return (
     <section
       aria-label="Resumo Geral de Alertas Operacionais"
-      className="bg-gradient-to-b from-slate-50 to-slate-100/80 dark:bg-none dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 flex flex-col justify-between h-full min-h-[240px] transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60"
+      className="bg-gradient-to-b from-slate-50 to-slate-100/80 dark:bg-none dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 flex flex-col h-full min-h-[380px] transition-all duration-300 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60"
     >
       {isLoading ? (
         <div
@@ -111,7 +109,7 @@ const CardResumoGeral = () => {
         </div>
       ) : (
         <>
-          <header className="mb-4 flex flex-col">
+          <header className="mb-4 flex flex-col shrink-0">
             <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight">
               Alertas Operacionais
             </h2>
@@ -120,7 +118,7 @@ const CardResumoGeral = () => {
             </p>
           </header>
 
-          <ul className="flex flex-col gap-3 flex-1 justify-center m-0 p-0 list-none">
+          <ul className="flex flex-col gap-3.5 flex-1 min-h-0 justify-center m-0 p-0 list-none">
             {alertas.map((item, index) => {
               const IconeComponente = item.icone;
               const temItens = item.valor > 0;
@@ -149,7 +147,7 @@ const CardResumoGeral = () => {
               return (
                 <li
                   key={index}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border transition-all duration-200 hover:scale-[1.01] ${estiloItem}`}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all duration-200 hover:scale-[1.01] ${estiloItem}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
@@ -213,6 +211,16 @@ const CardResumoGeral = () => {
               );
             })}
           </ul>
+
+          <footer className="mt-4 pt-3 border-t border-gray-100/70 dark:border-gray-700/40 flex items-center justify-center gap-1.5 shrink-0">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            </span>
+            <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              Monitoramento em tempo real
+            </span>
+          </footer>
         </>
       )}
     </section>

@@ -380,7 +380,7 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col gap-6 pb-6">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 min-h-[320px] flex flex-col justify-between">
+        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 min-h-[380px] flex flex-col justify-between">
           <div>
             <div>
               <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 tracking-tight">
@@ -507,7 +507,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Rodapé atualizado: Botão Gerar Relatório e Botão Ver Produtos alinhados à direita */}
           <div className="mt-4 pt-3 flex items-center justify-end gap-2 shrink-0">
             <Dialog open={isModalAberto} onOpenChange={setIsModalAberto}>
               <DialogTrigger asChild>
@@ -684,7 +683,7 @@ const Dashboard = () => {
           <CardResumoGeral />
         </div>
 
-        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 flex flex-col h-full min-h-[320px] overflow-visible relative">
+        <div className="xl:col-span-1 bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 flex flex-col h-full min-h-[380px] overflow-hidden relative">
           <div className="flex items-center justify-between mb-4 shrink-0">
             <div>
               <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight">
@@ -695,7 +694,7 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
-          <div className="flex-1 overflow-visible">
+          <div className="flex-1 min-h-0">
             <CardVencimentosPizza />
           </div>
         </div>
