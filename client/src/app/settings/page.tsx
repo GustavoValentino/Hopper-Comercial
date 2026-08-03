@@ -65,7 +65,8 @@ const Settings = () => {
   });
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isImageChanged, setIsImageChanged] = useState(false);
-  const [notifications, setNotifications] = useState(true);
+  const [pushAtivo, setPushAtivo] = useState(false);
+  const [isRegisteringPush, setIsRegisteringPush] = useState(false);
 
   const [securityData, setSecurityData] = useState({
     currentPassword: "",
@@ -116,6 +117,78 @@ const Settings = () => {
 
   const handleInputChange = (key: keyof TextSettings, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, "+")
+      .replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const handleNotificationToggle = async (checked: boolean) => {
+    if (!checked) {
+      setPushAtivo(false);
+      return;
+    }
+
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      alert("Seu navegador não suporta Notificações Push.");
+      return;
+    }
+
+    setIsRegisteringPush(true);
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      await navigator.serviceWorker.ready;
+
+      const permission = await window.Notification.requestPermission();
+      if (permission !== "granted") {
+        alert("Permissão de notificação negada pelo navegador.");
+        setIsRegisteringPush(false);
+        return;
+      }
+
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.error("Chave VAPID pública não definida no client (.env).");
+        alert("Configuração de push ausente. Contate o suporte.");
+        setIsRegisteringPush(false);
+        return;
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+      });
+
+      // Grava a inscrição no backend imediatamente, na rota que de fato
+      // persiste na tabela PushSubscription — nada disso passa pelo
+      // updateUserSettings, que não tem esses campos.
+      const response = await fetch("/api/notifications/subscribe", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription),
+      });
+
+      if (!response.ok) {
+        throw new Error("Erro ao salvar inscrição no servidor.");
+      }
+
+      setPushAtivo(true);
+    } catch (error) {
+      console.error("Erro ao ativar Push Notification:", error);
+      alert("Não foi possível ativar as notificações push.");
+    } finally {
+      setIsRegisteringPush(false);
+    }
   };
 
   const handlePencilClick = () => {
@@ -419,10 +492,12 @@ const Settings = () => {
                     <Bell className="w-4 h-4 text-gray-400 mt-0.5" />
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
-                        Alertas Globais
+                        Alertas Globais & Push
                       </span>
                       <span className="text-[11px] text-gray-400">
-                        Notificar sobre produtos com estoque crítico.
+                        {isRegisteringPush
+                          ? "Ativando neste dispositivo..."
+                          : "Receber notificações push de estoque crítico neste dispositivo."}
                       </span>
                     </div>
                   </div>
@@ -430,10 +505,13 @@ const Settings = () => {
                     <input
                       type="checkbox"
                       className="sr-only peer"
-                      checked={notifications}
-                      onChange={() => setNotifications(!notifications)}
+                      checked={pushAtivo}
+                      disabled={isRegisteringPush}
+                      onChange={(e) =>
+                        handleNotificationToggle(e.target.checked)
+                      }
                     />
-                    <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 rounded-full peer-focus:ring-0 transition after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:bg-emerald-500"></div>
+                    <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 rounded-full peer-focus:ring-0 transition after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:bg-emerald-500 peer-disabled:opacity-50"></div>
                   </label>
                 </div>
 
@@ -471,7 +549,6 @@ const Settings = () => {
         </div>
       )}
 
-      {/* Aba Acesso & Segurança */}
       {activeTab === "seguranca" && (
         <form
           onSubmit={handleUpdatePasswordSubmit}
@@ -596,7 +673,6 @@ const Settings = () => {
         </form>
       )}
 
-      {/* Modal de Crop */}
       {isEditorOpen && selectedFile && (
         <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative w-full max-w-sm bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-2xl rounded-xl p-6 text-center">

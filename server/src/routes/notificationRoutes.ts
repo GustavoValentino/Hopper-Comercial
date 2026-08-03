@@ -5,6 +5,7 @@ import {
   markAllAsRead,
   markAsRead,
   deleteNotification,
+  subscribePush,
 } from "../controllers/notificationController.js";
 import { protegerRota } from "../middlewares/authMiddleware.js";
 
@@ -12,6 +13,7 @@ const router = Router();
 
 router.get("/", protegerRota, getNotifications);
 router.post("/", protegerRota, createNotification);
+router.post("/subscribe", protegerRota, subscribePush);
 router.patch("/read-all", protegerRota, markAllAsRead);
 router.patch("/:id/read", protegerRota, markAsRead);
 router.delete("/:id", protegerRota, deleteNotification);

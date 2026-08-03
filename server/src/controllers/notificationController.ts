@@ -1,13 +1,42 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import webpush from "web-push";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import {
   getHojeNoFusoBrasil,
   normalizarDataUTC,
   calcularDiasRestantes,
 } from "../lib/dateUtils.js";
+import { enviarEmail, templateAlertaVencimento } from "../lib/mailer.js";
 
 const prisma = new PrismaClient();
+
+// ── Web Push (VAPID) ────────────────────────────────────────────
+// webpush.setVapidDetails valida o formato das chaves e lança uma
+// exceção SÍNCRONA se forem inválidas/ausentes — por isso a guarda
+// abaixo, para nunca derrubar o boot do servidor por falta de .env.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_SUBJECT =
+  process.env.VAPID_SUBJECT || "mailto:hopper.comercial@gmail.com";
+
+let pushHabilitado = false;
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    pushHabilitado = true;
+  } catch (err) {
+    console.error(
+      "[web-push] Chaves VAPID inválidas — notificações push desativadas.",
+      err,
+    );
+  }
+} else {
+  console.warn(
+    "[web-push] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY não configuradas — notificações push desativadas. Gere um par com `npx web-push generate-vapid-keys`.",
+  );
+}
 
 export const getNotifications = async (
   req: Request,
@@ -49,7 +78,7 @@ export const getNotifications = async (
       },
       include: {
         user: {
-          select: { name: true },
+          select: { name: true, email: true },
         },
       },
     });
@@ -87,14 +116,77 @@ export const getNotifications = async (
             ? ` (Responsável: ${produto.user.name})`
             : "";
 
+        const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.${responsavel}`;
+
         await prisma.notification.create({
           data: {
             userId,
             productId: produto.productId,
             type: "CRITICAL_EXPIRY",
-            message: `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.${responsavel}`,
+            message: mensagemTexto,
           },
         });
+
+        if (pushHabilitado) {
+          try {
+            const userSubscriptions = await prisma.pushSubscription.findMany({
+              where: { userId },
+            });
+
+            console.log(
+              `[push] ${userSubscriptions.length} dispositivo(s) inscrito(s) para o usuário ${userId}.`,
+            );
+
+            const pushPayload = JSON.stringify({
+              title: "Alerta de Vencimento - Hopper",
+              body: mensagemTexto,
+              url: "/",
+              tag: `produto-${produto.productId}`,
+            });
+
+            for (const sub of userSubscriptions) {
+              const pushConfig = {
+                endpoint: sub.endpoint,
+                keys: sub.keys as { p256dh: string; auth: string },
+              };
+
+              webpush
+                .sendNotification(pushConfig, pushPayload)
+                .then(() =>
+                  console.log(
+                    `[push] Notificação enviada com sucesso para ${sub.endpoint.slice(0, 50)}...`,
+                  ),
+                )
+                .catch(async (err: any) => {
+                  if (err.statusCode === 410 || err.statusCode === 404) {
+                    await prisma.pushSubscription
+                      .delete({ where: { id: sub.id } })
+                      .catch(() => {});
+                  } else {
+                    console.error("Erro ao enviar push notification:", err);
+                  }
+                });
+            }
+          } catch (pushError) {
+            console.error("Erro ao processar envios de Push:", pushError);
+          }
+        }
+
+        if (produto.user?.email) {
+          console.log(
+            `[mailer] Disparando alerta para ${produto.user.email} (produto: ${produto.name}).`,
+          );
+          enviarEmail({
+            to: produto.user.email,
+            subject: `[Hopper] ${produto.name} — ${mensagemDias}`,
+            html: templateAlertaVencimento({
+              nomeProduto: produto.name,
+              setor,
+              mensagemDias,
+              responsavel: isAdmin ? produto.user?.name : null,
+            }),
+          });
+        }
       }
     }
 
@@ -103,9 +195,6 @@ export const getNotifications = async (
       orderBy: { createdAt: "desc" },
     });
 
-    // Join manual com Product (não há relação FK entre Notification e
-    // Product no schema, então buscamos os produtos referenciados em lote
-    // e mesclamos em memória — evita N+1 queries e não exige migration).
     const productIds = [
       ...new Set(
         notifications
@@ -275,5 +364,55 @@ export const deleteNotification = async (
     res
       .status(500)
       .json({ error: "Erro ao excluir notificação.", details: error.message });
+  }
+};
+
+export const subscribePush = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    const userId = authReq.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: "Usuário não autenticado." });
+      return;
+    }
+
+    if (!pushHabilitado) {
+      res.status(503).json({
+        error:
+          "Notificações push não estão configuradas no servidor (chaves VAPID ausentes).",
+      });
+      return;
+    }
+
+    const subscription = req.body;
+
+    if (!subscription || !subscription.endpoint) {
+      res.status(400).json({ error: "Dados de inscrição inválidos." });
+      return;
+    }
+
+    await prisma.pushSubscription.upsert({
+      where: { endpoint: subscription.endpoint },
+      update: {
+        keys: subscription.keys,
+        userId: userId,
+      },
+      create: {
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
+        userId: userId,
+      },
+    });
+
+    res.status(201).json({ message: "Inscrição push realizada com sucesso!" });
+  } catch (error: any) {
+    res.status(500).json({
+      error: "Erro ao salvar inscrição push.",
+      details: error.message,
+    });
   }
 };

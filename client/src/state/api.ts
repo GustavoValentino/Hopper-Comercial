@@ -40,6 +40,7 @@ export interface User {
   criticalProductsCount: number;
   isOnline?: boolean;
   language?: string;
+  notifications?: boolean;
 }
 
 export interface GetUsersResponse {

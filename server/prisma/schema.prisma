@@ -29,11 +29,12 @@ model User {
   resetPasswordToken       String?   @unique
   resetPasswordExpires     DateTime?
 
-  sessions      Session[]
-  accounts      Account[]
-  Products      Product[]
-  AuditLogs     AuditLogs[]
-  Notifications Notification[]
+  sessions          Session[]
+  accounts          Account[]
+  Products          Product[]
+  AuditLogs         AuditLogs[]
+  Notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Session {
@@ -75,24 +76,24 @@ model Verification {
 }
 
 model Product {
-  productId      String      @id @default(uuid())
-  sku            String      @unique
+  productId      String         @id @default(uuid())
+  sku            String         @unique
   name           String
   description    String?
   weight         Float?
-  unit           ProductUnit @default(KG)
+  unit           ProductUnit    @default(KG)
   stockQuantity  Int
-  minStock       Int         @default(5)
+  minStock       Int            @default(5)
   category       String
   rating         Float?
-  updatedAt      DateTime    @updatedAt
-  expirationDate DateTime    @db.Timestamptz
+  updatedAt      DateTime       @updatedAt
+  expirationDate DateTime       @db.Timestamptz
   lotNumber      String?
   section        String
   note           String?
   imageUrl       String?
   userId         String
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   Notifications  Notification[]
 }
 
@@ -115,4 +116,14 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String?
   product   Product? @relation(fields: [productId], references: [productId], onDelete: SetNull)
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  endpoint  String   @unique
+  keys      Json
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
