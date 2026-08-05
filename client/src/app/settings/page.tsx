@@ -168,9 +168,6 @@ const Settings = () => {
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
       });
 
-      // Grava a inscrição no backend imediatamente, na rota que de fato
-      // persiste na tabela PushSubscription — nada disso passa pelo
-      // updateUserSettings, que não tem esses campos.
       const response = await fetch("/api/notifications/subscribe", {
         method: "POST",
         credentials: "include",

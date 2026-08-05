@@ -15,6 +15,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import dns from "dns";
+import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -84,6 +85,11 @@ io.on("connection", (socket) => {
     io.emit("update_online_count", new Set(activeSockets.values()).size);
   });
 });
+
+// Job agendado: verifica produtos críticos e dispara notificação
+// interna + push + e-mail automaticamente, todo dia, independente
+// de qualquer usuário estar com o app aberto.
+iniciarJobVerificacaoVencimentos();
 
 const port = Number(process.env.PORT) || 3001;
 

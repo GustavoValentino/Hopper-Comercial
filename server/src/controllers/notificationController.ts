@@ -11,6 +11,8 @@ import { enviarEmail, templateAlertaVencimento } from "../lib/mailer.js";
 
 const prisma = new PrismaClient();
 
+const JANELA_ALERTA_DIAS = 15;
+
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT =
@@ -30,8 +32,160 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   }
 } else {
   console.warn(
-    "[web-push] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY não configuradas — notificações push desativadas. Gere um par com `npx web-push generate-vapid-keys`.",
+    "[web-push] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY não configuradas — notificações push desativadas.",
   );
+}
+
+async function dispararPushEEmail(
+  userId: string,
+  userEmail: string | null | undefined,
+  produtoNome: string,
+  produtoId: string,
+  mensagemTexto: string,
+  mensagemDias: string,
+  setor: string,
+): Promise<void> {
+  if (pushHabilitado) {
+    try {
+      const userSubscriptions = await prisma.pushSubscription.findMany({
+        where: { userId },
+      });
+
+      const pushPayload = JSON.stringify({
+        title: "Alerta de Vencimento - Hopper",
+        body: mensagemTexto,
+        url: "/",
+        tag: `produto-${produtoId}`,
+      });
+
+      for (const sub of userSubscriptions) {
+        const pushConfig = {
+          endpoint: sub.endpoint,
+          keys: sub.keys as { p256dh: string; auth: string },
+        };
+
+        webpush
+          .sendNotification(pushConfig, pushPayload)
+          .then(() =>
+            console.log(
+              `[push] Notificação enviada com sucesso para ${sub.endpoint.slice(0, 50)}...`,
+            ),
+          )
+          .catch(async (err: any) => {
+            if (err.statusCode === 410 || err.statusCode === 404) {
+              await prisma.pushSubscription
+                .delete({ where: { id: sub.id } })
+                .catch(() => {});
+            } else {
+              console.error("Erro ao enviar push notification:", err);
+            }
+          });
+      }
+    } catch (pushError) {
+      console.error("Erro ao processar envios de Push:", pushError);
+    }
+  }
+
+  if (userEmail) {
+    console.log(
+      `[mailer] Disparando alerta para ${userEmail} (produto: ${produtoNome}).`,
+    );
+    enviarEmail({
+      to: userEmail,
+      subject: `[Hopper] ${produtoNome} — ${mensagemDias}`,
+      html: templateAlertaVencimento({
+        nomeProduto: produtoNome,
+        setor,
+        mensagemDias,
+        responsavel: null,
+      }),
+    });
+  }
+}
+
+/**
+ * Varre TODOS os produtos do sistema (de todos os usuários) buscando
+ * os que entraram na janela crítica de vencimento, e gera o alerta
+ * (notificação interna + push + e-mail) para o DONO de cada produto.
+ *
+ * Chamada pelo cron job — verificação automática periódica,
+ * independente de qualquer usuário estar logado.
+ */
+export async function verificarVencimentosCriticos(): Promise<void> {
+  const hoje = getHojeNoFusoBrasil();
+  const limiteCritico = new Date(hoje);
+  limiteCritico.setUTCDate(limiteCritico.getUTCDate() + JANELA_ALERTA_DIAS);
+
+  const produtosCriticos = await prisma.product.findMany({
+    where: {
+      expirationDate: {
+        gte: hoje,
+        lte: limiteCritico,
+      },
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  });
+
+  console.log(
+    `[cron] ${produtosCriticos.length} produto(s) dentro da janela de ${JANELA_ALERTA_DIAS} dias.`,
+  );
+
+  for (const produto of produtosCriticos) {
+    if (!produto.expirationDate || !produto.user) continue;
+
+    const donoId = produto.user.id;
+
+    const alertaExistente = await prisma.notification.findFirst({
+      where: {
+        userId: donoId,
+        productId: produto.productId,
+        type: "CRITICAL_EXPIRY",
+        isRead: false,
+      },
+    });
+
+    if (alertaExistente) continue;
+
+    const expDate = normalizarDataUTC(produto.expirationDate);
+    const diasRestantes = Math.round(
+      (expDate.getTime() - hoje.getTime()) / 86400000,
+    );
+
+    const mensagemDias =
+      diasRestantes === 0
+        ? "vence HOJE!"
+        : diasRestantes === 1
+          ? "vence AMANHÃ!"
+          : `vence em ${diasRestantes} dias!`;
+
+    const setor =
+      (produto as any).category || (produto as any).section || "Geral";
+
+    const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.`;
+
+    await prisma.notification.create({
+      data: {
+        userId: donoId,
+        productId: produto.productId,
+        type: "CRITICAL_EXPIRY",
+        message: mensagemTexto,
+      },
+    });
+
+    await dispararPushEEmail(
+      donoId,
+      produto.user.email,
+      produto.name,
+      produto.productId,
+      mensagemTexto,
+      mensagemDias,
+      setor,
+    );
+  }
 }
 
 export const getNotifications = async (
@@ -45,145 +199,6 @@ export const getNotifications = async (
     if (!userId) {
       res.status(401).json({ error: "Usuário não autenticado." });
       return;
-    }
-
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
-
-    if (!currentUser) {
-      res.status(404).json({ error: "Usuário não encontrado." });
-      return;
-    }
-
-    const isAdmin = currentUser.role?.toLowerCase() === "admin";
-
-    const hoje = getHojeNoFusoBrasil();
-
-    const limiteCritico = new Date(hoje);
-    limiteCritico.setUTCDate(limiteCritico.getUTCDate() + 5);
-
-    const produtosCriticos = await prisma.product.findMany({
-      where: {
-        ...(isAdmin ? {} : { userId }),
-        expirationDate: {
-          gte: hoje,
-          lte: limiteCritico,
-        },
-      },
-      include: {
-        user: {
-          select: { name: true, email: true },
-        },
-      },
-    });
-
-    for (const produto of produtosCriticos) {
-      if (!produto.expirationDate) continue;
-
-      const alertaExistente = await prisma.notification.findFirst({
-        where: {
-          userId,
-          productId: produto.productId,
-          type: "CRITICAL_EXPIRY",
-          isRead: false,
-        },
-      });
-
-      if (!alertaExistente) {
-        const expDate = normalizarDataUTC(produto.expirationDate);
-        const diasRestantes = Math.round(
-          (expDate.getTime() - hoje.getTime()) / 86400000,
-        );
-
-        let mensagemDias =
-          diasRestantes === 0
-            ? "vence HOJE!"
-            : diasRestantes === 1
-              ? "vence AMANHÃ!"
-              : `vence em ${diasRestantes} dias!`;
-
-        const setor =
-          (produto as any).category || (produto as any).section || "Geral";
-
-        const responsavel =
-          isAdmin && produto.user?.name
-            ? ` (Responsável: ${produto.user.name})`
-            : "";
-
-        const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.${responsavel}`;
-
-        await prisma.notification.create({
-          data: {
-            userId,
-            productId: produto.productId,
-            type: "CRITICAL_EXPIRY",
-            message: mensagemTexto,
-          },
-        });
-
-        if (pushHabilitado) {
-          try {
-            const userSubscriptions = await prisma.pushSubscription.findMany({
-              where: { userId },
-            });
-
-            console.log(
-              `[push] ${userSubscriptions.length} dispositivo(s) inscrito(s) para o usuário ${userId}.`,
-            );
-
-            const pushPayload = JSON.stringify({
-              title: "Alerta de Vencimento - Hopper",
-              body: mensagemTexto,
-              url: "/",
-              tag: `produto-${produto.productId}`,
-            });
-
-            for (const sub of userSubscriptions) {
-              const pushConfig = {
-                endpoint: sub.endpoint,
-                keys: sub.keys as { p256dh: string; auth: string },
-              };
-
-              webpush
-                .sendNotification(pushConfig, pushPayload)
-                .then(() =>
-                  console.log(
-                    `[push] Notificação enviada com sucesso para ${sub.endpoint.slice(0, 50)}...`,
-                  ),
-                )
-                .catch(async (err: any) => {
-                  if (err.statusCode === 410 || err.statusCode === 404) {
-                    await prisma.pushSubscription
-                      .delete({ where: { id: sub.id } })
-                      .catch(() => {});
-                  } else {
-                    console.error("Erro ao enviar push notification:", err);
-                  }
-                });
-            }
-          } catch (pushError) {
-            console.error("Erro ao processar envios de Push:", pushError);
-          }
-        }
-
-        if (produto.user?.email) {
-          console.log(
-            `[mailer] Disparando alerta para ${produto.user.email} (produto: ${produto.name}).`,
-          );
-          enviarEmail({
-            to: produto.user.email,
-            subject: `[Hopper] ${produto.name} — ${mensagemDias}`,
-            html: templateAlertaVencimento({
-              nomeProduto: produto.name,
-              setor,
-              mensagemDias,
-              responsavel: isAdmin ? produto.user?.name : null,
-            }),
-          });
-        }
-      }
     }
 
     const notifications = await prisma.notification.findMany({
