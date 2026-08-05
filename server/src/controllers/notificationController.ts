@@ -11,10 +11,6 @@ import { enviarEmail, templateAlertaVencimento } from "../lib/mailer.js";
 
 const prisma = new PrismaClient();
 
-// ── Web Push (VAPID) ────────────────────────────────────────────
-// webpush.setVapidDetails valida o formato das chaves e lança uma
-// exceção SÍNCRONA se forem inválidas/ausentes — por isso a guarda
-// abaixo, para nunca derrubar o boot do servidor por falta de .env.
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT =

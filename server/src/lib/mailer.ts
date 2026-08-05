@@ -1,10 +1,6 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY || "";
 const EMAIL_USER = process.env.EMAIL_USER || "";
 
-// Mesmo padrão de configuração usada em authController.ts (verificação
-// de e-mail e recuperação de senha) — API REST da Brevo, não SMTP.
-// Sem chave/remetente configurados, o envio fica desativado (com aviso
-// no log) em vez de quebrar o fluxo que chamou esta função.
 export const emailHabilitado = Boolean(BREVO_API_KEY && EMAIL_USER);
 
 if (!emailHabilitado) {
@@ -19,11 +15,6 @@ interface EnviarEmailParams {
   html: string;
 }
 
-/**
- * Envia um e-mail via API REST da Brevo. Nunca lança exceção — retorna
- * `false` em caso de falha (config ausente ou erro de envio), para que
- * uma notificação por e-mail nunca quebre o fluxo principal da aplicação.
- */
 export async function enviarEmail({
   to,
   subject,
@@ -63,13 +54,6 @@ export async function enviarEmail({
   }
 }
 
-/**
- * Template de e-mail para alerta crítico de vencimento, seguindo a
- * MESMA identidade visual dos e-mails de verificação/recuperação de
- * senha (authController.ts): header azul-marinho com ícone circular,
- * barra degradê verde, cartão branco de 580px, box de destaque e
- * rodapé padrão.
- */
 export function templateAlertaVencimento({
   nomeProduto,
   setor,
