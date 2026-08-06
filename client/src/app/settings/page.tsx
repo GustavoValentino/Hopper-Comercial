@@ -109,6 +109,26 @@ const Settings = () => {
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    const verificarInscricaoPush = async () => {
+      if ("serviceWorker" in navigator && "PushManager" in window) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            const subscription =
+              await registration.pushManager.getSubscription();
+            if (subscription) {
+              setPushAtivo(true);
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao verificar inscrição push existente:", error);
+        }
+      }
+    };
+    verificarInscricaoPush();
+  }, []);
+
   const hasGeralChanges =
     formData.username !== initialFormData.username ||
     formData.email !== initialFormData.email ||
