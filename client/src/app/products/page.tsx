@@ -14,8 +14,9 @@ import {
   ChevronDownIcon,
   ImageIcon,
   CircleX,
+  Filter,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import Header from "@/app/(components)/Header";
 import CreateProductModal from "./CreateProductModal";
@@ -38,6 +39,8 @@ const ProductSkeleton = () => (
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("TODAS");
+  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(8);
   const [lightboxProduct, setLightboxProduct] = useState<{
@@ -45,17 +48,47 @@ const Products = () => {
     name: string;
   } | null>(null);
 
-  const {
-    data: products,
-    isLoading,
-    isError,
-  } = useGetProductsQuery(searchTerm);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const { data: allProducts, isLoading, isError } = useGetProductsQuery();
   const [createProduct] = useCreateProductMutation();
+
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCategoryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Lista única de categorias para o seletor
+  const categories = useMemo(() => {
+    const cats = ["TODAS", ...(allProducts?.map((p) => p.category) || [])];
+    return Array.from(new Set(cats));
+  }, [allProducts]);
+
+  // Lógica de filtragem combinada (Busca + Categoria)
+  const filteredProducts = useMemo(() => {
+    if (!allProducts) return [];
+    return allProducts.filter((p) => {
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        selectedCategory === "TODAS" || p.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [allProducts, searchTerm, selectedCategory]);
 
   useEffect(() => {
     setVisibleCount(8);
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategory]);
 
   const handleCreateProduct = async (productData: any) => {
     try {
@@ -93,8 +126,8 @@ const Products = () => {
     );
   }
 
-  const productsToRender = products?.slice(0, visibleCount) || [];
-  const hasMoreProducts = (products?.length || 0) > visibleCount;
+  const productsToRender = filteredProducts.slice(0, visibleCount);
+  const hasMoreProducts = filteredProducts.length > visibleCount;
 
   return (
     <div className="mx-auto pb-5 w-full text-gray-900 dark:text-gray-100">
@@ -107,20 +140,68 @@ const Products = () => {
         </div>
 
         <div className="flex flex-col gap-3 w-full md:flex-row md:items-center md:w-auto">
-          <div className="relative w-full md:w-72 lg:w-80">
-            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-            <input
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
-              placeholder="Buscar por nome ou código de barras..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          {/* Barra de Pesquisa e Filtro Discreto Agrupados */}
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-grow md:w-72 lg:w-80">
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <input
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
+                placeholder="Buscar por nome ou código..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Botão de Filtro com Ícone Discreto e Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsCategoryOpen(!isCategoryOpen)}
+                title="Filtrar por Categoria"
+                className={`flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer shadow-xs shrink-0 ${
+                  selectedCategory !== "TODAS"
+                    ? "bg-emerald-50 border-emerald-500 text-emerald-600 dark:bg-emerald-950/40 dark:border-emerald-500 dark:text-emerald-400"
+                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+              </button>
+
+              {isCategoryOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-xl z-50 py-1.5 overflow-hidden">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700/60">
+                    Filtrar Categoria
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setSelectedCategory(cat);
+                          setIsCategoryOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                          selectedCategory === cat
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                        }`}
+                      >
+                        <span className="truncate">{cat.toUpperCase()}</span>
+                        {selectedCategory === cat && (
+                          <CheckCircle2Icon className="w-3.5 h-3.5 shrink-0 ml-2" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center justify-between md:justify-end gap-3">
             <span className="text-xs text-gray-500 dark:text-gray-400 font-medium md:hidden">
-              {products?.length || 0}{" "}
-              {products?.length === 1 ? "produto" : "produtos"}
+              {filteredProducts.length}{" "}
+              {filteredProducts.length === 1 ? "produto" : "produtos"}
             </span>
             <button
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer shrink-0"
@@ -138,7 +219,7 @@ const Products = () => {
             <ProductSkeleton key={i} />
           ))}
         </div>
-      ) : products && products.length > 0 ? (
+      ) : filteredProducts && filteredProducts.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {productsToRender.map((product: any) => {
@@ -299,7 +380,7 @@ const Products = () => {
             <div className="flex justify-center mt-6">
               <button
                 onClick={() => setVisibleCount((prev) => prev + 8)}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-all shadow-xs active:scale-95"
+                className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-all shadow-xs active:scale-95 cursor-pointer"
               >
                 <span>Ver mais produtos</span>
                 <ChevronDownIcon className="w-4 h-4 text-gray-400" />
@@ -314,7 +395,7 @@ const Products = () => {
             Nenhum produto localizado no catálogo.
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            Tente buscar pelo código ou realize um novo registro operacional.
+            Tente buscar por outro termo ou selecione outra categoria.
           </p>
         </div>
       )}
@@ -326,11 +407,11 @@ const Products = () => {
       />
       {lightboxProduct && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[70] flex items-center justify-center p-4"
+          className="flex fixed inset-0 z-50 items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
           onClick={() => setLightboxProduct(null)}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden max-w-xs w-full shadow-2xl"
+            className="w-full max-w-xs bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-end p-2">
@@ -348,7 +429,7 @@ const Products = () => {
               alt={lightboxProduct.name}
               className="w-full aspect-square object-cover"
             />
-            <p className="text-xs font-bold text-gray-700 dark:text-gray-200 uppercase text-center p-3 tracking-tight">
+            <p className="p-3 text-xs font-bold text-center text-gray-700 dark:text-gray-200 uppercase tracking-tight">
               {lightboxProduct.name}
             </p>
           </div>
