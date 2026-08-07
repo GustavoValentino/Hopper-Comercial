@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import {
   useGetUsersQuery,
   useUpdateUserRoleMutation,
@@ -174,6 +175,9 @@ const UsersPage = () => {
   const totalCriticalSystem: number = data?.totalCriticalSystem || 0;
 
   const [userList, setUserList] = useState<UserRow[]>([]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (userListFromBackend.length > 0) {
@@ -515,7 +519,7 @@ const UsersPage = () => {
                   setIsNotifyModalOpen(true);
                 }}
                 title={`Enviar mensagem direta para ${params.row.name}`}
-                className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-blue-600 hover:bg-slate-100 transition-all dark:bg-gray-700/50 dark:border-gray-700 dark:text-blue-400 dark:hover:bg-gray-700"
+                className="p-1.5 rounded-lg border border-slate-200 bg-slate-50 text-emerald-600 hover:bg-slate-100 transition-all dark:bg-gray-700/50 dark:border-gray-700 dark:text-emerald-400 dark:hover:bg-gray-700"
               >
                 <MessageSquare className="w-4 h-4" />
               </button>
@@ -1043,73 +1047,95 @@ const UsersPage = () => {
         </div>
       )}
 
-      {isNotifyModalOpen && notifyTarget && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800/80 rounded-2xl max-w-md w-full shadow-2xl p-6 relative">
-            <button
-              onClick={() => setIsNotifyModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400 mb-4">
-              <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl">
-                <Bell className="w-5 h-5" />
+      {isNotifyModalOpen &&
+        notifyTarget &&
+        mounted &&
+        createPortal(
+          <div className="fixed inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800/80 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden relative animate-in zoom-in-95 duration-200">
+              <button
+                onClick={() => setIsNotifyModalOpen(false)}
+                className="absolute top-4 right-4 z-10 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 px-6 pt-8 pb-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3.5">
+                  <Bell className="w-6 h-6 text-white" strokeWidth={2} />
+                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  Notificar Operador
+                </h3>
+                <p className="text-[11px] text-blue-100/90 font-medium mt-1">
+                  Envie um alerta direto para este operador
+                </p>
               </div>
-              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 tracking-tight">
-                Notificar Operador
-              </h3>
-            </div>
-            <p className="text-[11px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider mb-4">
-              Destinatário:{" "}
-              <span className="text-gray-700 dark:text-gray-300 normal-case font-medium">
-                {notifyTarget.name} ({notifyTarget.email})
-              </span>
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                  Mensagem de Alerta Direto
-                </label>
-                <textarea
-                  rows={4}
-                  value={notifyMessage}
-                  onChange={(e) => setNotifyMessage(e.target.value)}
-                  placeholder="Escreva as diretrizes ou avisos administrativos..."
-                  className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 text-gray-700 dark:text-gray-200 rounded-xl transition-all resize-none leading-relaxed"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2 justify-between items-center pt-2">
-                <button
-                  type="button"
-                  onClick={handleSendEmailNotification}
-                  className="flex items-center gap-2 px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-slate-50 dark:hover:bg-gray-800 transition-all active:scale-95"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  Abrir Via E-mail
-                </button>
-                <div className="flex gap-2">
+
+              <div className="px-6 pt-5 pb-6">
+                <div className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50 rounded-xl p-3 mb-5">
+                  <div
+                    className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${getAvatarColor(notifyTarget.name)}`}
+                  >
+                    {getInitials(notifyTarget.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+                      {notifyTarget.name}
+                    </p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                      {notifyTarget.email}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+                    Mensagem de Alerta
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={notifyMessage}
+                    onChange={(e) => setNotifyMessage(e.target.value)}
+                    placeholder="Escreva as diretrizes ou avisos administrativos..."
+                    className="w-full px-3.5 py-3 border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 text-xs font-medium focus:outline-none focus:border-blue-500 dark:focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-gray-700 dark:text-gray-200 rounded-xl transition-all resize-none leading-relaxed"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-between items-center pt-5 mt-5 border-t border-gray-100 dark:border-gray-800">
                   <button
                     type="button"
-                    onClick={() => setIsNotifyModalOpen(false)}
-                    className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-800 transition-all"
+                    onClick={handleSendEmailNotification}
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all active:scale-95 cursor-pointer"
                   >
-                    Voltar
+                    <Mail className="w-3.5 h-3.5" />
+                    Via E-mail
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleSendInternalNotification}
-                    disabled={isSubmitting}
-                    className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 rounded-xl disabled:opacity-50 transition-all"
-                  >
-                    {isSubmitting ? "Enviando..." : "Alerta Interno"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsNotifyModalOpen(false)}
+                      className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all cursor-pointer"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSendInternalNotification}
+                      disabled={isSubmitting || !notifyMessage.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                      {isSubmitting ? "Enviando..." : "Alerta Interno"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };
