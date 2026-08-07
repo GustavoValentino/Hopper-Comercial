@@ -147,7 +147,8 @@ const Products = () => {
               const hoje = new Date();
               hoje.setHours(0, 0, 0, 0);
 
-              let corBordaSuperior = "border-t-emerald-500";
+              let corBordaSuperior =
+                "border-t-emerald-600 dark:border-t-emerald-400";
               let statusBadge = (
                 <span className="text-[9px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
                   <CheckCircle2Icon className="w-3 h-3" /> SEGURO
@@ -177,7 +178,8 @@ const Products = () => {
                     </span>
                   );
                 } else if (diferencaDias <= 15) {
-                  corBordaSuperior = "border-t-amber-500";
+                  corBordaSuperior =
+                    "border-t-amber-500 dark:border-t-amber-500";
                   statusBadge = (
                     <span className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
                       <AlertTriangleIcon className="w-3 h-3" /> ALERTA VALIDADE
@@ -189,7 +191,7 @@ const Products = () => {
               return (
                 <div
                   key={product.productId}
-                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:border-gray-600/60 transition-all duration-300 flex flex-col justify-between`}
+                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:border-x-gray-400/60 dark:hover:border-b-gray-400/60 transition-all duration-300 flex flex-col justify-between`}
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between gap-2 mb-3">
