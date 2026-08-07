@@ -181,22 +181,18 @@ const Dashboard = () => {
     return produtos
       .map((produto) => {
         if (!produto.expirationDate) return null;
+
         const stringDataPura = produto.expirationDate.substring(0, 10);
         const dataValidade = new Date(`${stringDataPura}T00:00:00`);
-        const dias = Math.ceil(
-          (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        const janela = getJanelaRebaixa(produto.category);
-        return { produto, dias, janela };
+        const diferencaTempo = dataValidade.getTime() - hoje.getTime();
+        const dias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+
+        // Define a regra fixa de 15 dias para TODOS os produtos
+        return { produto, dias };
       })
       .filter(
-        (
-          item,
-        ): item is {
-          produto: (typeof produtos)[number];
-          dias: number;
-          janela: number;
-        } => item !== null && item.dias <= item.janela,
+        (item): item is { produto: (typeof produtos)[number]; dias: number } =>
+          item !== null && item.dias <= 15, // Filtro universal de 15 dias
       )
       .sort((a, b) => a.dias - b.dias);
   }, [produtos]);
