@@ -208,6 +208,16 @@ const UsersPage = () => {
   const [activeTab, setActiveTab] = useState<"operadores" | "auditoria">(
     "operadores",
   );
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredUsers = userList.filter((u) => {
+    const nameMatch = u.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const emailMatch = u.email
+      ?.toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    return nameMatch || emailMatch;
+  });
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
@@ -241,7 +251,6 @@ const UsersPage = () => {
   );
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedAction, setSelectedAction] = useState("TODOS");
   const [visibleLogsCount, setVisibleLogsCount] = useState(10);
 
@@ -681,36 +690,41 @@ const UsersPage = () => {
       </div>
 
       {activeTab === "operadores" && (
-        <div className="w-full bg-white dark:bg-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-xl border border-gray-100 dark:border-gray-700/60 overflow-hidden transition-all">
-          {isLoading && (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <div className="w-6 h-6 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wide">
-                Carregando operadores ativos...
-              </span>
+        <div className="w-full bg-white dark:bg-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-xl border border-gray-100 dark:border-gray-700/60 overflow-hidden transition-all">
+          {/* BARRA DE BUSCA DA ABA OPERADORES */}
+          <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-gray-900/10">
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar operador por nome ou e-mail..."
+                className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 transition-all font-medium"
+              />
             </div>
-          )}
-          {isError && (
-            <div className="flex items-center justify-center py-16 text-rose-500 font-bold gap-3">
-              <AlertTriangle className="w-5 h-5" />
-              <span className="text-sm">
-                Erro ao sincronizar lista de operadores.
-              </span>
-            </div>
-          )}
-          {!isLoading && !isError && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+              Mostrando {filteredUsers.length} de {userList.length} operadores
+            </span>
+          </div>
+
+          {/* CONTAINER COM ALTURA FIXA E SCROLL INTERNO */}
+          <div className="w-full h-[520px] overflow-hidden">
             <DataGrid
-              rows={userList}
+              rows={filteredUsers}
               columns={columns}
               getRowId={(row) => row.id}
               checkboxSelection
               disableRowSelectionOnClick
-              autoHeight
               rowHeight={52}
               localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
               sx={{
                 border: "none",
                 backgroundColor: "transparent",
+                height: "100%",
+                "& .MuiDataGrid-virtualScroller": {
+                  overflowY: "auto", // Garante o scroll nativo fluido na tabela
+                },
                 "& .MuiDataGrid-columnHeaderTitle": {
                   fontWeight: "700 !important",
                   color: "#374151 !important",
@@ -747,7 +761,7 @@ const UsersPage = () => {
                   borderBottom: "1px solid #374151 !important",
                 },
                 ":global(.dark) & .MuiDataGrid-columnHeaderTitle": {
-                  color: "#f3f4f6 !important",
+                  color: "#f9fafb !important",
                 },
                 ":global(.dark) & .MuiDataGrid-columnHeader--scrollbarFiller, :global(.dark) & .MuiDataGrid-filler, :global(.dark) & .MuiDataGrid-scrollbarFiller":
                   {
@@ -781,7 +795,7 @@ const UsersPage = () => {
                 },
               }}
             />
-          )}
+          </div>
         </div>
       )}
 
