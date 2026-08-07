@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useGetDashboardMetricsQuery } from "@/state/api";
 import { useAppSelector } from "@/app/redux";
 import Link from "next/link";
@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   ArrowRight,
   ImageOff,
+  ChevronDownIcon,
+  Check,
 } from "lucide-react";
 import CardEstoqueCritico from "./CardEstoqueCritico";
 import CardAlertaVencimento from "./CardAlertaVencimento";
@@ -30,18 +32,6 @@ import {
 } from "../../components/ui/dialog";
 
 const LIMITE_CRITICO = 15;
-
-const JANELA_REBAIXA_POR_CATEGORIA: Record<string, number> = {
-  "Carnes e Aves": 3,
-  Laticínios: 3,
-  Padaria: 3,
-  Hortifruti: 1,
-};
-
-const JANELA_REBAIXA_PADRAO = 15;
-
-const getJanelaRebaixa = (categoria: string): number =>
-  JANELA_REBAIXA_POR_CATEGORIA[categoria] ?? JANELA_REBAIXA_PADRAO;
 
 const carregarImagemBase64 = (url: string): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -126,8 +116,15 @@ const Dashboard = () => {
   const [formattedDate, setFormattedDate] = useState("");
   const [isDateLoading, setIsDateLoading] = useState(true);
   const [isModalAberto, setIsModalAberto] = useState(false);
+
+  // Estados de filtro
   const [filtroExportacao, setFiltroExportacao] = useState("todos");
+  const [filtroCategoriaExportacao, setFiltroCategoriaExportacao] =
+    useState("TODAS");
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+
   const [imagensComErro, setImagensComErro] = useState<Set<string>>(new Set());
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const marcarErroImagem = (id: string) =>
     setImagensComErro((prev) => new Set(prev).add(id));
@@ -144,6 +141,25 @@ const Dashboard = () => {
     setIsDateLoading(false);
   }, []);
 
+  // Fecha o dropdown customizado ao clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const categoriasDisponiveis = useMemo(() => {
+    const cats = produtos.map((p) => p.category).filter(Boolean);
+    return ["TODAS", ...Array.from(new Set(cats))];
+  }, [produtos]);
+
   const obterProdutosFiltrados = () => {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -157,16 +173,21 @@ const Dashboard = () => {
         diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
       }
 
-      if (filtroExportacao === "vencidos")
-        return diferencaDias !== null && diferencaDias < 0;
-      if (filtroExportacao === "criticos")
-        return produto.stockQuantity <= LIMITE_CRITICO;
-      if (filtroExportacao === "proximos")
-        return (
-          diferencaDias !== null && diferencaDias >= 0 && diferencaDias <= 15
-        );
+      let atendeStatus = true;
+      if (filtroExportacao === "vencidos") {
+        atendeStatus = diferencaDias !== null && diferencaDias < 0;
+      } else if (filtroExportacao === "criticos") {
+        atendeStatus = produto.stockQuantity <= LIMITE_CRITICO;
+      } else if (filtroExportacao === "proximos") {
+        atendeStatus =
+          diferencaDias !== null && diferencaDias >= 0 && diferencaDias <= 15;
+      }
 
-      return true;
+      const atendeCategoria =
+        filtroCategoriaExportacao === "TODAS" ||
+        produto.category === filtroCategoriaExportacao;
+
+      return atendeStatus && atendeCategoria;
     });
   };
 
@@ -181,18 +202,16 @@ const Dashboard = () => {
     return produtos
       .map((produto) => {
         if (!produto.expirationDate) return null;
-
         const stringDataPura = produto.expirationDate.substring(0, 10);
         const dataValidade = new Date(`${stringDataPura}T00:00:00`);
-        const diferencaTempo = dataValidade.getTime() - hoje.getTime();
-        const dias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
-
-        // Define a regra fixa de 15 dias para TODOS os produtos
+        const dias = Math.ceil(
+          (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+        );
         return { produto, dias };
       })
       .filter(
         (item): item is { produto: (typeof produtos)[number]; dias: number } =>
-          item !== null && item.dias <= 15, // Filtro universal de 15 dias
+          item !== null && item.dias <= 15,
       )
       .sort((a, b) => a.dias - b.dias);
   }, [produtos]);
@@ -200,7 +219,7 @@ const Dashboard = () => {
   const handleConfirmarExportacao = async () => {
     if (dadosFiltrados.length === 0) {
       alert(
-        "Não há registros correspondentes ao filtro selecionado para exportação.",
+        "Não há registros correspondentes aos filtros selecionados para exportação.",
       );
       return;
     }
@@ -252,26 +271,30 @@ const Dashboard = () => {
     doc.rect(0, 38, 210, 1.2, "F");
 
     doc.setFillColor(...cores.cinzaClaro);
-    doc.rect(0, 39.2, 210, 22, "F");
+    doc.rect(0, 39.2, 210, 26, "F");
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...cores.cinzaEscuro);
-    doc.text("Relatório de Produtos Críticos", 14, 48);
+    doc.text("Relatório Analítico de Inventário", 14, 47);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Escopo: ${filtroExportacao.toUpperCase()}`, 14, 54);
+    doc.text(
+      `Escopo de Status: ${filtroExportacao.toUpperCase()} | Categoria: ${filtroCategoriaExportacao.toUpperCase()}`,
+      14,
+      53,
+    );
 
     const dataEmissao = `${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(`Emitido por: ${userName}`, 210 - 14, 48, { align: "right" });
-    doc.text(`Data: ${dataEmissao}`, 210 - 14, 54, { align: "right" });
+    doc.text(`Emitido por: ${userName}`, 210 - 14, 47, { align: "right" });
+    doc.text(`Data: ${dataEmissao}`, 210 - 14, 53, { align: "right" });
 
     doc.setDrawColor(220, 220, 220);
-    doc.line(14, 61.2, 196, 61.2);
+    doc.line(14, 65.2, 196, 65.2);
 
     const imagensBase64: Record<string, string | null> = {};
     await Promise.all(
@@ -291,15 +314,17 @@ const Dashboard = () => {
     const colunasTabela = [
       "Foto",
       "Produto",
+      "Categoria",
       "Código",
       "Quantidade",
-      "Data de Validade",
+      "Validade",
     ];
     const linhasTabela = dadosFiltrados.map((p) => {
       const pesoFormatado = formatarPesoMetrico(p.weight, p.unit);
       return [
         "",
         `${p.name} (${pesoFormatado})`,
+        p.category || "—",
         p.sku || "—",
         `${p.stockQuantity} un`,
         formatarDataTabela(p.expirationDate ?? ""),
@@ -309,7 +334,7 @@ const Dashboard = () => {
     autoTable(doc, {
       head: [colunasTabela],
       body: linhasTabela,
-      startY: 65,
+      startY: 68,
       theme: "striped",
       headStyles: {
         fillColor: cores.verde,
@@ -326,10 +351,10 @@ const Dashboard = () => {
         minCellHeight: 14,
       },
       columnStyles: {
-        0: { cellWidth: 16 },
+        0: { cellWidth: 20, halign: "center" },
       },
       alternateRowStyles: { fillColor: cores.cinzaClaro },
-      margin: { top: 65, right: 14, bottom: 22, left: 14 },
+      margin: { top: 68, right: 14, bottom: 22, left: 14 },
       didDrawCell: (data) => {
         if (data.section === "body" && data.column.index === 0) {
           const produto = dadosFiltrados[data.row.index];
@@ -369,7 +394,9 @@ const Dashboard = () => {
     });
 
     const dataSlug = new Date().toISOString().slice(0, 10);
-    doc.save(`hopper_relatorio_${filtroExportacao}_${dataSlug}.pdf`);
+    doc.save(
+      `hopper_relatorio_${filtroExportacao}_${filtroCategoriaExportacao.toLowerCase()}_${dataSlug}.pdf`,
+    );
     setIsModalAberto(false);
   };
 
@@ -494,8 +521,7 @@ const Dashboard = () => {
                       Tudo sob controle
                     </p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      Nenhum produto está dentro da janela de rebaixa da sua
-                      categoria.
+                      Nenhum produto está próximo da janela limite de 15 dias.
                     </p>
                   </div>
                 </div>
@@ -515,55 +541,132 @@ const Dashboard = () => {
                 </button>
               </DialogTrigger>
 
-              <DialogContent className="sm:max-w-[600px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl rounded-xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
+              <DialogContent className="sm:max-w-[640px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl rounded-xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-bold text-gray-800 dark:text-gray-100">
                     Configurar Exportação de Dados
                   </DialogTitle>
                   <DialogDescription className="text-xs text-gray-400 dark:text-gray-500">
-                    Selecione o escopo do inventário que você deseja baixar para
-                    atualizar sua planilha ou imprimir para controle físico.
+                    Filtre os registros por status de criticidade e selecione um
+                    corredor/categoria específico para refinar o relatório em
+                    PDF.
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="my-5">
-                  <span
-                    className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
-                    id="filtro-label"
-                  >
-                    Filtrar registros por:
-                  </span>
-                  <div
-                    className="grid grid-cols-2 sm:grid-cols-4 gap-2"
-                    role="group"
-                    aria-labelledby="filtro-label"
-                  >
-                    {[
-                      { id: "todos", label: "Tudo" },
-                      { id: "vencidos", label: "Vencidos" },
-                      { id: "proximos", label: "Próx. 15 dias" },
-                      { id: "criticos", label: "Estoque Crítico" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.id}
-                        onClick={() => setFiltroExportacao(opt.id)}
-                        aria-pressed={filtroExportacao === opt.id}
-                        className={`px-3 py-2 text-xs font-bold border rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] ${
-                          filtroExportacao === opt.id
-                            ? "bg-[#006938] text-white border-[#006938] shadow-sm"
-                            : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                <div className="my-4 space-y-4">
+                  {/* Filtro por Status */}
+                  <div>
+                    <span
+                      className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
+                      id="filtro-label"
+                    >
+                      1. Status / Criticidade:
+                    </span>
+                    <div
+                      className="grid grid-cols-2 sm:grid-cols-4 gap-2"
+                      role="group"
+                      aria-labelledby="filtro-label"
+                    >
+                      {[
+                        { id: "todos", label: "Tudo" },
+                        { id: "vencidos", label: "Vencidos" },
+                        { id: "proximos", label: "Próx. 15 dias" },
+                        { id: "criticos", label: "Estoque Crítico" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setFiltroExportacao(opt.id)}
+                          aria-pressed={filtroExportacao === opt.id}
+                          className={`px-3 py-2 text-xs font-bold border rounded-lg transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] ${
+                            filtroExportacao === opt.id
+                              ? "bg-[#006938] text-white border-[#006938] shadow-sm"
+                              : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Filtro por Categoria / Corredor Customizado (Shadcn Style) */}
+                  <div className="relative" ref={categoryDropdownRef}>
+                    <span
+                      className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
+                      id="categoria-label"
+                    >
+                      2. Categoria / Departamento:
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsCategoryDropdownOpen(!isCategoryDropdownOpen)
+                      }
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-200 hover:bg-gray-100/70 dark:hover:bg-gray-800 transition-all cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-[#006938]"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <PackageIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <span className="truncate">
+                          {filtroCategoriaExportacao === "TODAS"
+                            ? "Todas as Categorias (Geral)"
+                            : filtroCategoriaExportacao.toUpperCase()}
+                        </span>
+                      </div>
+                      <ChevronDownIcon
+                        className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-300 ${
+                          isCategoryDropdownOpen
+                            ? "transform rotate-180 text-[#006938]"
+                            : ""
                         }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                      />
+                    </button>
+
+                    {/* Painel Flutuante Animado */}
+                    {isCategoryDropdownOpen && (
+                      <div className="absolute left-0 right-0 mt-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                        <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700/60">
+                          Selecione o Corredor
+                        </div>
+                        <div className="max-h-48 overflow-y-auto px-1 py-1 space-y-0.5 custom-scrollbar">
+                          {categoriasDisponiveis.map((cat) => {
+                            const isSelected =
+                              filtroCategoriaExportacao === cat;
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => {
+                                  setFiltroCategoriaExportacao(cat);
+                                  setIsCategoryDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs font-semibold rounded-lg transition-colors flex items-center justify-between cursor-pointer ${
+                                  isSelected
+                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-[#006938] dark:text-emerald-400"
+                                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {cat === "TODAS"
+                                    ? "Todas as Categorias (Geral)"
+                                    : cat.toUpperCase()}
+                                </span>
+                                {isSelected && (
+                                  <Check className="w-3.5 h-3.5 text-[#006938] dark:text-emerald-400 shrink-0 ml-2" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
                   <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Prévia dos Dados (Primeiros 5)
+                      Prévia dos Dados Filtrados
                     </span>
                     <span
                       className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
@@ -576,12 +679,12 @@ const Dashboard = () => {
                     </span>
                   </div>
 
-                  <div className="p-2 overflow-x-auto">
+                  <div className="p-2 overflow-x-auto max-h-40 overflow-y-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
                           <th className="p-2">Produto</th>
-                          <th className="p-2">Código</th>
+                          <th className="p-2">Categoria</th>
                           <th className="p-2">Qtd</th>
                           <th className="p-2">Validade</th>
                         </tr>
@@ -593,7 +696,8 @@ const Dashboard = () => {
                               colSpan={4}
                               className="p-4 text-center text-gray-400 dark:text-gray-500 italic"
                             >
-                              Nenhum produto corresponde ao filtro selecionado.
+                              Nenhum produto corresponde aos filtros
+                              selecionados.
                             </td>
                           </tr>
                         ) : (
@@ -602,8 +706,8 @@ const Dashboard = () => {
                               key={p.productId}
                               className="border-b border-gray-50 dark:border-gray-800/40 last:border-none hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition-colors"
                             >
-                              <td className="p-2 flex items-center gap-2.5 max-w-[200px]">
-                                <div className="relative w-8 h-8 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
+                              <td className="p-2 flex items-center gap-2.5 max-w-[180px]">
+                                <div className="relative w-7 h-7 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
                                   {p.imageUrl ? (
                                     <img
                                       src={p.imageUrl}
@@ -612,7 +716,7 @@ const Dashboard = () => {
                                       loading="lazy"
                                     />
                                   ) : (
-                                    <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                                    <PackageIcon className="w-3 h-3 text-gray-300 dark:text-gray-600" />
                                   )}
                                 </div>
                                 <div className="truncate">
@@ -622,13 +726,10 @@ const Dashboard = () => {
                                   >
                                     {p.name}
                                   </p>
-                                  <p className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                                    {formatarPesoMetrico(p.weight, p.unit)}
-                                  </p>
                                 </div>
                               </td>
-                              <td className="p-2 font-mono text-gray-500 dark:text-gray-400 text-[11px]">
-                                {p.sku || "—"}
+                              <td className="p-2 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                                {p.category || "—"}
                               </td>
                               <td className="p-2 font-bold">
                                 {p.stockQuantity} un
@@ -644,7 +745,7 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-100 dark:border-gray-800">
                   <button
                     onClick={() => setIsModalAberto(false)}
                     className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
@@ -653,7 +754,8 @@ const Dashboard = () => {
                   </button>
                   <button
                     onClick={handleConfirmarExportacao}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] focus-visible:ring-offset-2"
+                    disabled={dadosFiltrados.length === 0}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] focus-visible:ring-offset-2"
                   >
                     <Download className="w-3.5 h-3.5" aria-hidden="true" />
                     Baixar PDF
