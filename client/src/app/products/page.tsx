@@ -171,7 +171,7 @@ const Products = () => {
                 );
 
                 if (diferencaDias < 0) {
-                  corBordaSuperior = "border-t-rose-600";
+                  corBordaSuperior = "border-t-rose-600 dark:border-t-rose-600";
                   statusBadge = (
                     <span className="text-[9px] bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 animate-pulse">
                       <AlertTriangleIcon className="w-3 h-3" /> VENCIDO
