@@ -22,6 +22,7 @@ import {
   ScaleIcon,
   CalendarDaysIcon,
   PrinterIcon,
+  Search,
 } from "lucide-react";
 
 import {
@@ -43,6 +44,13 @@ const Inventory = () => {
 
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [productToEdit, setProductToEdit] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredProducts = (products || []).filter((p) => {
+    const nameMatch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const skuMatch = p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+    return nameMatch || skuMatch;
+  });
 
   const handleDelete = async () => {
     if (productToDelete) {
@@ -266,7 +274,6 @@ const Inventory = () => {
       alternateRowStyles: {
         fillColor: cinzaClaro,
       },
-      // Linha singela entre cada produto
       didDrawCell: (data) => {
         if (
           data.section === "body" &&
@@ -471,75 +478,97 @@ const Inventory = () => {
       </div>
 
       <div className="bg-white dark:bg-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-xl border border-gray-100 dark:border-gray-700/60 overflow-hidden transition-all">
-        <DataGrid
-          rows={products || []}
-          columns={columns}
-          getRowId={(row) => row.productId}
-          checkboxSelection
-          disableRowSelectionOnClick
-          autoHeight
-          rowHeight={52}
-          localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
-          sx={{
-            border: "none",
-            backgroundColor: "transparent",
-            "& .MuiDataGrid-columnHeaderTitle": {
-              fontWeight: "700 !important",
-              color: "#374151 !important",
-            },
-            "& .MuiDataGrid-columnHeader": {
-              backgroundColor: "#f9fafb",
-              borderBottom: "1px solid #f3f4f6",
-            },
-            ".dark & .MuiDataGrid-columnHeaderTitle": {
-              color: "#f3f4f6 !important",
-            },
-            ".dark & .MuiDataGrid-columnHeader": {
-              backgroundColor: "#1f2937 !important",
-              borderBottom: "1px solid #374151 !important",
-            },
-            "& .MuiDataGrid-columnHeader--scrollbarFiller, & .MuiDataGrid-filler, & .MuiDataGrid-scrollbarFiller":
-              { backgroundColor: "#f9fafb !important" },
-            ".dark & .MuiDataGrid-columnHeader--scrollbarFiller, .dark & .MuiDataGrid-filler, .dark & .MuiDataGrid-scrollbarFiller":
-              {
-                backgroundColor: "#1f2937 !important",
-                borderBottom: "1px solid #374151 !important",
-              },
-            "& .MuiDataGrid-iconButtonContainer, & .MuiDataGrid-menuIcon": {
-              visibility: "visible !important",
-              width: "auto !important",
-            },
-            "& .MuiDataGrid-iconButtonContainer b, & .MuiDataGrid-menuIcon button":
-              { visibility: "visible !important" },
-            "& .MuiSvgIcon-root, & .MuiDataGrid-iconButtonContainer .MuiButtonBase-root, & .MuiDataGrid-menuIcon .MuiButtonBase-root":
-              { color: "#374151 !important" },
-            ".dark & .MuiSvgIcon-root, .dark & .MuiDataGrid-iconButtonContainer .MuiButtonBase-root, .dark & .MuiDataGrid-menuIcon .MuiButtonBase-root":
-              { color: "#9ca3af !important" },
-            "& .MuiDataGrid-cell": {
-              borderBottom: "1px solid #f3f4f6",
-              display: "flex",
-              alignItems: "center",
-            },
-            ".dark & .MuiDataGrid-cell": {
-              borderBottom: "1px solid #374151/70",
-              color: "#e5e7eb",
-            },
-            "& .MuiDataGrid-footerContainer": {
-              borderTop: "1px solid #f3f4f6",
+        {/* BARRA DE BUSCA DE PRODUTOS */}
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-gray-900/10">
+          <div className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome ou código de barras..."
+              className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 transition-all font-medium"
+            />
+          </div>
+          <span className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+            Mostrando {filteredProducts.length} de {(products || []).length}{" "}
+            produtos
+          </span>
+        </div>
+
+        {/* CONTAINER COM ALTURA FIXA E SCROLL INTERNO */}
+        <div className="w-full h-[520px] overflow-hidden">
+          <DataGrid
+            rows={filteredProducts}
+            columns={columns}
+            getRowId={(row) => row.productId}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowHeight={52}
+            localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
+            sx={{
+              border: "none",
               backgroundColor: "transparent",
-            },
-            ".dark & .MuiDataGrid-footerContainer": {
-              borderTop: "1px solid #374151 !important",
-              color: "#e5e7eb",
-            },
-            "& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows, & .MuiTablePagination-select, & .MuiTablePagination-actions .MuiButtonBase-root":
-              { color: "inherit !important" },
-            ".dark & .MuiTablePagination-actions .MuiButtonBase-root": {
-              color: "#9ca3af !important",
-            },
-            "& .MuiCheckbox-root": { color: "#10b981 !important" },
-          }}
-        />
+              height: "100%",
+              "& .MuiDataGrid-virtualScroller": {
+                overflowY: "auto",
+              },
+              "& .MuiDataGrid-columnHeaderTitle": {
+                fontWeight: "700 !important",
+                color: "#374151 !important",
+              },
+              "& .MuiDataGrid-columnHeader": {
+                backgroundColor: "#f9fafb",
+                borderBottom: "1px solid #f3f4f6",
+              },
+              ".dark & .MuiDataGrid-columnHeaderTitle": {
+                color: "#f3f4f6 !important",
+              },
+              ".dark & .MuiDataGrid-columnHeader": {
+                backgroundColor: "#1f2937 !important",
+                borderBottom: "1px solid #314151 !important",
+              },
+              "& .MuiDataGrid-columnHeader--scrollbarFiller, & .MuiDataGrid-filler, & .MuiDataGrid-scrollbarFiller":
+                { backgroundColor: "#f9fafb !important" },
+              ".dark & .MuiDataGrid-columnHeader--scrollbarFiller, .dark & .MuiDataGrid-filler, .dark & .MuiDataGrid-scrollbarFiller":
+                {
+                  backgroundColor: "#1f2937 !important",
+                  borderBottom: "1px solid #314151 !important",
+                },
+              "& .MuiDataGrid-iconButtonContainer, & .MuiDataGrid-menuIcon": {
+                visibility: "visible !important",
+                width: "auto !important",
+              },
+              "& .MuiSvgIcon-root, & .MuiDataGrid-iconButtonContainer .MuiButtonBase-root, & .MuiDataGrid-menuIcon .MuiButtonBase-root":
+                { color: "#374151 !important" },
+              ".dark & .MuiSvgIcon-root, .dark & .MuiDataGrid-iconButtonContainer .MuiButtonBase-root, .dark & .MuiDataGrid-menuIcon .MuiButtonBase-root":
+                { color: "#9ca3af !important" },
+              "& .MuiDataGrid-cell": {
+                borderBottom: "1px solid #f3f4f6",
+                display: "flex",
+                alignItems: "center",
+              },
+              ".dark & .MuiDataGrid-cell": {
+                borderBottom: "1px solid #314151/70",
+                color: "#e5e7eb",
+              },
+              "& .MuiDataGrid-footerContainer": {
+                borderTop: "1px solid #f3f4f6",
+                backgroundColor: "transparent",
+              },
+              ".dark & .MuiDataGrid-footerContainer": {
+                borderTop: "1px solid #314151 !important",
+                color: "#e5e7eb",
+              },
+              "& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows, & .MuiTablePagination-select, & .MuiTablePagination-actions .MuiButtonBase-root":
+                { color: "inherit !important" },
+              ".dark & .MuiTablePagination-actions .MuiButtonBase-root": {
+                color: "#9ca3af !important",
+              },
+              "& .MuiCheckbox-root": { color: "#10b981 !important" },
+            }}
+          />
+        </div>
       </div>
 
       <AlertDialog
