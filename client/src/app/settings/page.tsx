@@ -869,6 +869,19 @@ const Settings = () => {
                   className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-medium"
                   required
                 />
+                {securityData.newPassword.length > 0 && (
+                  <span
+                    className={`text-[10px] font-semibold transition-all ${
+                      securityData.newPassword.length >= 8
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {securityData.newPassword.length >= 8
+                      ? "✓ Senha atende ao tamanho mínimo"
+                      : `Faltam ${8 - securityData.newPassword.length} caracteres (mínimo 8)`}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
