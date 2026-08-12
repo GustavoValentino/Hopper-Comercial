@@ -23,6 +23,7 @@ import {
   Eye,
   EyeOff,
   Sliders,
+  Smartphone,
 } from "lucide-react";
 
 import {
@@ -48,6 +49,13 @@ const Settings = () => {
 
   const currentUser = useAppSelector((state) => state.auth.user);
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
+
+  const [whatsappData, setWhatsappData] = useState({
+    phone: "",
+    otp: "",
+    isVerifying: false,
+  });
+  const [showOtpInput, setShowOtpInput] = useState(false);
 
   const [updateUserSettings, { isLoading }] = useUpdateUserSettingsMutation();
 
@@ -352,6 +360,68 @@ const Settings = () => {
     });
   };
 
+  const handleRequestWhatsAppOtp = async () => {
+    try {
+      const res = await fetch("/api/whatsapp/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // <--- ESSENCIAL PARA ENVIAR O COOKIE DE SESSÃO
+        body: JSON.stringify({
+          phoneNumber: whatsappData.phone, // <--- Ajustado para o nome exato esperado pelo backend ("phoneNumber")
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Erro ao solicitar código.");
+
+      setShowOtpInput(true);
+      setAlertConfig({
+        title: "Código Enviado!",
+        description: "Verifique seu WhatsApp.",
+        isError: false,
+      });
+      setIsAlertOpen(true);
+    } catch (error: any) {
+      setAlertConfig({
+        title: "Erro",
+        description: error.message || "Falha ao enviar OTP.",
+        isError: true,
+      });
+      setIsAlertOpen(true);
+    }
+  };
+
+  const handleVerifyWhatsAppOtp = async () => {
+    try {
+      const res = await fetch("/api/whatsapp/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // <--- ESSENCIAL PARA ENVIAR O COOKIE DE SESSÃO
+        body: JSON.stringify({
+          code: whatsappData.otp,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Código inválido.");
+
+      setAlertConfig({
+        title: "Sucesso!",
+        description: "WhatsApp vinculado com sucesso.",
+        isError: false,
+      });
+      setIsAlertOpen(true);
+      setShowOtpInput(false);
+    } catch (error: any) {
+      setAlertConfig({
+        title: "Erro",
+        description: error.message || "Código incorreto ou expirado.",
+        isError: true,
+      });
+      setIsAlertOpen(true);
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-12">
       <div className="flex flex-col gap-1">
@@ -546,6 +616,56 @@ const Settings = () => {
                   />
                 </div>
               </div>
+            </div>
+            {/* Seção de WhatsApp (Fora da anterior) */}
+            <div className="bg-white dark:bg-gray-800 shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-xl border border-gray-100 dark:border-gray-700/60 p-6">
+              <div className="flex items-center gap-2 pb-4 mb-5 border-b border-gray-100 dark:border-gray-700/50">
+                <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                  WhatsApp Notificações
+                </h2>
+              </div>
+
+              {!showOtpInput ? (
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    placeholder="(00) 00000-0000"
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
+                    onChange={(e) =>
+                      setWhatsappData({
+                        ...whatsappData,
+                        phone: e.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    type="button" // IMPORTANTE: Adicione type="button" aqui
+                    onClick={handleRequestWhatsAppOtp}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold uppercase transition-all"
+                  >
+                    Enviar Código
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    placeholder="Digite o código"
+                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-emerald-500 rounded-lg text-xs"
+                    onChange={(e) =>
+                      setWhatsappData({ ...whatsappData, otp: e.target.value })
+                    }
+                  />
+                  <button
+                    type="button" // IMPORTANTE: Adicione type="button" aqui
+                    onClick={handleVerifyWhatsAppOtp}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded-lg text-xs font-bold uppercase transition-all"
+                  >
+                    Validar Código
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-2">

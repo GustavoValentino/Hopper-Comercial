@@ -4,6 +4,7 @@ import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
 import { calcularDiasRestantes } from "../lib/dateUtils.js";
+import { notificarWhatsappSeAtivo } from "../lib/whatsappNotify.js";
 
 const prisma = new PrismaClient();
 
@@ -144,6 +145,14 @@ export const createProduct = async (
       await prisma.notification.create({
         data: { userId, productId: product.productId, type, message },
       });
+
+      // Se o alerta for crítico (<= 5 dias), dispara também via WhatsApp se o usuário tiver opt-in ativo
+      if (diasRestantes <= 5) {
+        await notificarWhatsappSeAtivo(
+          userId,
+          `⚠️ *Hopper — Alerta de validade*\n\nO lote de *${name}* no setor *${section}* está com vencimento crítico (${diasRestantes <= 0 ? "vencido" : `vence em ${diasRestantes} dia(s)`}).\n\nVerifique a gôndola o quanto antes.`,
+        );
+      }
     }
 
     await prisma.auditLogs.create({
@@ -240,7 +249,6 @@ export const updateProduct = async (
         expirationDate:
           expirationDate !== undefined ? new Date(expirationDate) : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
-        // Define como null se a imagem foi removida, ou mantém o novo URL se enviado
         imageUrl: shouldClearImage ? null : imageUrl || undefined,
       },
     });
@@ -271,6 +279,14 @@ export const updateProduct = async (
           await prisma.notification.create({
             data: { userId, productId: id, type, message },
           });
+        }
+
+        // Se o alerta atualizado for crítico, dispara via WhatsApp também
+        if (diasRestantes <= 5) {
+          await notificarWhatsappSeAtivo(
+            userId,
+            `⚠️ *Hopper — Alerta de validade*\n\nO lote de *${updatedProduct.name}* no setor *${updatedProduct.section}* está com vencimento crítico (${diasRestantes <= 0 ? "vencido" : `vence em ${diasRestantes} dia(s)`}).\n\nVerifique a gôndola o quanto antes.`,
+          );
         }
       } else {
         await prisma.notification.deleteMany({
@@ -309,7 +325,6 @@ export const deleteProduct = async (
       return;
     }
 
-    // 1. Buscamos o produto ANTES de deletar para verificar se existe imagem
     const product = await prisma.product.findUnique({
       where: { productId: id, userId },
     });
@@ -319,20 +334,15 @@ export const deleteProduct = async (
       return;
     }
 
-    // 2. Se houver URL de imagem, deletamos do Cloudinary
     if (product.imageUrl) {
       try {
-        // O public_id no Cloudinary, pela sua lógica de criação,
-        // é 'products/product-' seguido do ID
         const publicId = `products/product-${id}`;
         await cloudinary.uploader.destroy(publicId);
       } catch (cloudinaryError) {
         console.error("Erro ao deletar imagem do Cloudinary:", cloudinaryError);
-        // Não bloqueamos a deleção do banco caso a imagem falhe
       }
     }
 
-    // 3. Deletamos as notificações e o produto
     await prisma.notification.deleteMany({ where: { productId: id, userId } });
     await prisma.product.delete({
       where: { productId: id, userId },

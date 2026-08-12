@@ -14,8 +14,10 @@ import userRoutes from "./routes/userRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import auditRoutes from "./routes/auditRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import whatsappRoutes from "./routes/whatsappRoutes.js";
 import dns from "dns";
 import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
+import { iniciarConexaoWhatsapp } from "./lib/whatsapp.js"; // Correção: Usando a função do nosso lib/whatsapp.ts
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -46,7 +48,6 @@ app.use(morgan("dev"));
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Permite requisições sem origin (como mobile apps ou ferramentas de teste)
       if (!origin || allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
@@ -69,6 +70,10 @@ app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/audit-logs", auditRoutes);
 
+// Nota: Certifique-se de que o middleware de proteção de rota (ex: authenticate / protegerRota)
+// está importado e disponível aqui se optar por usá-lo nas rotas do WhatsApp.
+app.use("/api/whatsapp", whatsappRoutes);
+
 app.get("/ping", (_req, res) => res.send("pong"));
 
 const activeSockets = new Map<string, string>();
@@ -86,13 +91,14 @@ io.on("connection", (socket) => {
   });
 });
 
-// Job agendado: verifica produtos críticos e dispara notificação
-// interna + push + e-mail automaticamente, todo dia, independente
-// de qualquer usuário estar com o app aberto.
+// Job agendado: verifica produtos críticos e dispara notificação automaticamente
 iniciarJobVerificacaoVencimentos();
 
 const port = Number(process.env.PORT) || 3001;
 
 server.listen(port, "0.0.0.0", () => {
   console.log(`Servidor Hopper rodando na porta ${port}`);
+
+  // Inicializa a conexão do WhatsApp via Baileys assim que o servidor sobe
+  iniciarConexaoWhatsapp();
 });

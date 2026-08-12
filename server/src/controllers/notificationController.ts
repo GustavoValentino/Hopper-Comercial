@@ -8,6 +8,7 @@ import {
   calcularDiasRestantes,
 } from "../lib/dateUtils.js";
 import { enviarEmail, templateAlertaVencimento } from "../lib/mailer.js";
+import { notificarWhatsappSeAtivo } from "../lib/whatsappNotify.js"; // Novo: Import do helper de WhatsApp
 
 const prisma = new PrismaClient();
 
@@ -106,20 +107,21 @@ async function dispararPushEEmail(
 /**
  * Varre TODOS os produtos do sistema (de todos os usuários) buscando
  * os que entraram na janela crítica de vencimento, e gera o alerta
- * (notificação interna + push + e-mail) para o DONO de cada produto.
+ * (notificação interna + push + e-mail + WhatsApp) para o DONO de cada produto.
  *
  * Chamada pelo cron job — verificação automática periódica,
  * independente de qualquer usuário estar logado.
  */
 export async function verificarVencimentosCriticos(): Promise<void> {
   const hoje = getHojeNoFusoBrasil();
+  // Ajuste: A janela de alerta agora vai de 'hoje' até 'hoje + 15 dias'
   const limiteCritico = new Date(hoje);
   limiteCritico.setUTCDate(limiteCritico.getUTCDate() + JANELA_ALERTA_DIAS);
 
   const produtosCriticos = await prisma.product.findMany({
     where: {
       expirationDate: {
-        gte: hoje,
+        gte: hoje, // Garante que apenas produtos NÃO vencidos (ou vencendo hoje) sejam pegos
         lte: limiteCritico,
       },
     },
@@ -131,51 +133,49 @@ export async function verificarVencimentosCriticos(): Promise<void> {
   });
 
   console.log(
-    `[cron] ${produtosCriticos.length} produto(s) dentro da janela de ${JANELA_ALERTA_DIAS} dias.`,
+    `[cron] ${produtosCriticos.length} produto(s) na janela de alerta.`,
   );
 
   for (const produto of produtosCriticos) {
     if (!produto.expirationDate || !produto.user) continue;
 
     const donoId = produto.user.id;
+    const expDate = normalizarDataUTC(produto.expirationDate);
 
+    // Cálculo de dias exato para a mensagem
+    const diffTime = expDate.getTime() - hoje.getTime();
+    const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    // Evita duplicar notificações se o job rodar várias vezes no mesmo dia
     const alertaExistente = await prisma.notification.findFirst({
       where: {
         userId: donoId,
         productId: produto.productId,
         type: "CRITICAL_EXPIRY",
-        isRead: false,
+        createdAt: { gte: hoje }, // Verifica se já criamos hoje
       },
     });
 
     if (alertaExistente) continue;
 
-    const expDate = normalizarDataUTC(produto.expirationDate);
-    const diasRestantes = Math.round(
-      (expDate.getTime() - hoje.getTime()) / 86400000,
-    );
-
     const mensagemDias =
-      diasRestantes === 0
-        ? "vence HOJE!"
-        : diasRestantes === 1
-          ? "vence AMANHÃ!"
-          : `vence em ${diasRestantes} dias!`;
-
+      diasRestantes <= 0 ? "vence HOJE!" : `vence em ${diasRestantes} dias!`;
     const setor =
       (produto as any).category || (produto as any).section || "Geral";
+    const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor ${setor} ${mensagemDias}.`;
 
-    const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor de ${setor} ${mensagemDias} Verifique a gôndola.`;
-
+    // 1. Notificação Interna
     await prisma.notification.create({
       data: {
         userId: donoId,
         productId: produto.productId,
         type: "CRITICAL_EXPIRY",
         message: mensagemTexto,
+        isRead: false,
       },
     });
 
+    // 2. Push e E-mail
     await dispararPushEEmail(
       donoId,
       produto.user.email,
@@ -185,6 +185,14 @@ export async function verificarVencimentosCriticos(): Promise<void> {
       mensagemDias,
       setor,
     );
+
+    // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
+    if (diasRestantes <= 5) {
+      await notificarWhatsappSeAtivo(
+        donoId,
+        `⚠️ *Hopper — Alerta de validade*\n\nO produto *${produto.name}* no setor *${setor}* ${mensagemDias}\n\nVerifique a gôndola agora.`,
+      );
+    }
   }
 }
 

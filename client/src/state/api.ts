@@ -91,6 +91,11 @@ export interface ProductLookupResult {
   source: "cosmos" | "openfoodfacts";
 }
 
+export interface WhatsappStatus {
+  whatsappOptIn: boolean;
+  whatsappNumber: string | null;
+}
+
 export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: "/api",
@@ -104,6 +109,7 @@ export const api = createApi({
     "Users",
     "Notifications",
     "AuditLogs",
+    "WhatsappStatus",
   ],
   endpoints: (build) => ({
     login: build.mutation<AuthResponse, any>({
@@ -258,6 +264,39 @@ export const api = createApi({
       query: () => "/audit-logs",
       providesTags: ["AuditLogs"],
     }),
+
+    getWhatsappStatus: build.query<WhatsappStatus, void>({
+      query: () => "/whatsapp/status",
+      providesTags: ["WhatsappStatus"],
+    }),
+
+    requestWhatsappOtp: build.mutation<
+      { message: string; whatsappOnline?: boolean },
+      { phoneNumber: string }
+    >({
+      query: (body) => ({
+        url: "/whatsapp/request-otp",
+        method: "POST",
+        body,
+      }),
+    }),
+
+    verifyWhatsappOtp: build.mutation<{ message: string }, { code: string }>({
+      query: (body) => ({
+        url: "/whatsapp/verify-otp",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["WhatsappStatus"],
+    }),
+
+    disableWhatsapp: build.mutation<{ message: string }, void>({
+      query: () => ({
+        url: "/whatsapp/disable",
+        method: "POST",
+      }),
+      invalidatesTags: ["WhatsappStatus"],
+    }),
   }),
 });
 
@@ -280,4 +319,8 @@ export const {
   useDeleteNotificationMutation,
   useGetAuditLogsQuery,
   useLazyLookupProductByEanQuery,
+  useGetWhatsappStatusQuery,
+  useRequestWhatsappOtpMutation,
+  useVerifyWhatsappOtpMutation,
+  useDisableWhatsappMutation,
 } = api;
