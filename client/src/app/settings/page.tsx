@@ -4,9 +4,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/app/redux";
 import { setIsDarkMode } from "@/state";
 import { setCredentials } from "@/state/authSlice";
-import { useUpdateUserSettingsMutation } from "@/state/api";
+import {
+  useUpdateUserSettingsMutation,
+  useGetWhatsappStatusQuery,
+  useRequestWhatsappOtpMutation,
+  useVerifyWhatsappOtpMutation,
+  useDisableWhatsappMutation,
+} from "@/state/api";
 import { authClient } from "@/lib/auth-client";
-import AvatarEditor from "react-avatar-editor";
 import {
   User,
   Bell,
@@ -14,16 +19,19 @@ import {
   Globe,
   Save,
   Pencil,
-  ZoomIn,
-  X,
-  CheckCircle2,
   AlertTriangle,
   ShieldAlert,
   Clock,
   Eye,
   EyeOff,
   Sliders,
-  Smartphone,
+  MessageCircle,
+  X,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  RotateCw,
+  Unlink,
 } from "lucide-react";
 
 import {
@@ -44,18 +52,64 @@ type TextSettings = {
 
 type TabType = "geral" | "seguranca";
 
+const OTP_RESEND_COOLDOWN = 60;
+
+const formatarNumeroExibicao = (numero: string): string => {
+  const digitos = numero.replace(/\D/g, "");
+  const semDDI = digitos.startsWith("55") ? digitos.slice(2) : digitos;
+  if (semDDI.length < 10) return numero;
+  const ddd = semDDI.slice(0, 2);
+  const parte1 = semDDI.slice(2, semDDI.length - 4);
+  const parte2 = semDDI.slice(-4);
+  return `+55 (${ddd}) ${parte1}-${parte2}`;
+};
+
+const formatarInputTelefone = (valor: string): string => {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 7)
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2)}`;
+  return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+};
+
 const Settings = () => {
   const dispatch = useAppDispatch();
 
   const currentUser = useAppSelector((state) => state.auth.user);
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
 
-  const [whatsappData, setWhatsappData] = useState({
-    phone: "",
-    otp: "",
-    isVerifying: false,
-  });
-  const [showOtpInput, setShowOtpInput] = useState(false);
+  // ── WhatsApp: estado sincronizado com o backend ────────────────
+  const { data: whatsappStatus, isLoading: isLoadingWhatsappStatus } =
+    useGetWhatsappStatusQuery();
+  const [requestOtp] = useRequestWhatsappOtpMutation();
+  const [verifyOtp] = useVerifyWhatsappOtpMutation();
+  const [disableWhatsapp, { isLoading: isDisabling }] =
+    useDisableWhatsappMutation();
+
+  const [isWhatsappModalOpen, setIsWhatsappModalOpen] = useState(false);
+  const [whatsappStep, setWhatsappStep] = useState<"phone" | "otp">("phone");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otpValues, setOtpValues] = useState<string[]>([
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+  ]);
+  const [isSubmittingWhatsapp, setIsSubmittingWhatsapp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const whatsappAtivo = whatsappStatus?.whatsappOptIn ?? false;
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const [updateUserSettings, { isLoading }] = useUpdateUserSettingsMutation();
 
@@ -227,17 +281,6 @@ const Settings = () => {
     }
   };
 
-  const handleSaveCroppedImage = () => {
-    if (editorRef.current) {
-      const canvas = editorRef.current.getImageScaledToCanvas();
-      const dataUrl = canvas.toDataURL();
-      setProfileImage(dataUrl);
-      setIsImageChanged(true);
-      setIsEditorOpen(false);
-      setSelectedFile(null);
-    }
-  };
-
   const handleSaveChanges = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -360,66 +403,141 @@ const Settings = () => {
     });
   };
 
-  const handleRequestWhatsAppOtp = async () => {
+  // ── WhatsApp: handlers ──────────────────────────────────────────
+  const abrirModalWhatsapp = () => {
+    setPhoneNumber("");
+    setOtpValues(["", "", "", "", "", ""]);
+    setWhatsappStep("phone");
+    setResendCooldown(0);
+    setIsWhatsappModalOpen(true);
+  };
+
+  const handleWhatsappToggle = async (checked: boolean) => {
+    if (checked) {
+      abrirModalWhatsapp();
+      return;
+    }
+
+    // Desligando um número já confirmado: chama o backend direto,
+    // sem precisar reabrir o fluxo de OTP.
     try {
-      const res = await fetch("/api/whatsapp/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // <--- ESSENCIAL PARA ENVIAR O COOKIE DE SESSÃO
-        body: JSON.stringify({
-          phoneNumber: whatsappData.phone, // <--- Ajustado para o nome exato esperado pelo backend ("phoneNumber")
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Erro ao solicitar código.");
-
-      setShowOtpInput(true);
+      await disableWhatsapp().unwrap();
       setAlertConfig({
-        title: "Código Enviado!",
-        description: "Verifique seu WhatsApp.",
+        title: "WhatsApp Desconectado",
+        description: "Você não receberá mais alertas por este canal.",
         isError: false,
       });
       setIsAlertOpen(true);
     } catch (error: any) {
       setAlertConfig({
         title: "Erro",
-        description: error.message || "Falha ao enviar OTP.",
+        description:
+          error?.data?.message || "Não foi possível desativar o WhatsApp.",
         isError: true,
       });
       setIsAlertOpen(true);
     }
   };
 
-  const handleVerifyWhatsAppOtp = async () => {
-    try {
-      const res = await fetch("/api/whatsapp/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // <--- ESSENCIAL PARA ENVIAR O COOKIE DE SESSÃO
-        body: JSON.stringify({
-          code: whatsappData.otp,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Código inválido.");
-
+  const handleRequestWhatsAppOtp = async () => {
+    const digitos = phoneNumber.replace(/\D/g, "");
+    if (digitos.length < 10) {
       setAlertConfig({
-        title: "Sucesso!",
-        description: "WhatsApp vinculado com sucesso.",
-        isError: false,
-      });
-      setIsAlertOpen(true);
-      setShowOtpInput(false);
-    } catch (error: any) {
-      setAlertConfig({
-        title: "Erro",
-        description: error.message || "Código incorreto ou expirado.",
+        title: "Número Inválido",
+        description: "Insira um número de WhatsApp válido, com DDD.",
         isError: true,
       });
       setIsAlertOpen(true);
+      return;
     }
+
+    setIsSubmittingWhatsapp(true);
+    try {
+      await requestOtp({ phoneNumber: digitos }).unwrap();
+      setWhatsappStep("otp");
+      setResendCooldown(OTP_RESEND_COOLDOWN);
+      setOtpValues(["", "", "", "", "", ""]);
+    } catch (error: any) {
+      setAlertConfig({
+        title: "Erro ao Enviar",
+        description:
+          error?.data?.message || "Falha ao enviar o código de verificação.",
+        isError: true,
+      });
+      setIsAlertOpen(true);
+    } finally {
+      setIsSubmittingWhatsapp(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) {
+      const digits = value.replace(/\D/g, "").split("").slice(0, 6);
+      const newOtp = ["", "", "", "", "", ""];
+      digits.forEach((d, idx) => {
+        newOtp[idx] = d;
+      });
+      setOtpValues(newOtp);
+      if (digits.length === 6) {
+        otpInputRefs.current[5]?.focus();
+      }
+      return;
+    }
+
+    const newOtp = [...otpValues];
+    newOtp[index] = value.replace(/\D/g, "");
+    setOtpValues(newOtp);
+
+    if (value && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Backspace" && !otpValues[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyWhatsAppOtp = async () => {
+    const code = otpValues.join("");
+    if (code.length < 6) {
+      setAlertConfig({
+        title: "Código Incompleto",
+        description: "Digite os 6 dígitos enviados para o seu WhatsApp.",
+        isError: true,
+      });
+      setIsAlertOpen(true);
+      return;
+    }
+
+    setIsSubmittingWhatsapp(true);
+    try {
+      await verifyOtp({ code }).unwrap();
+      setIsWhatsappModalOpen(false);
+      setAlertConfig({
+        title: "WhatsApp Vinculado!",
+        description: "Notificações via WhatsApp ativadas com sucesso.",
+        isError: false,
+      });
+      setIsAlertOpen(true);
+    } catch (error: any) {
+      setAlertConfig({
+        title: "Erro de Validação",
+        description: error?.data?.message || "Código incorreto ou expirado.",
+        isError: true,
+      });
+      setIsAlertOpen(true);
+    } finally {
+      setIsSubmittingWhatsapp(false);
+    }
+  };
+
+  const handleFecharModalWhatsapp = () => {
+    setIsWhatsappModalOpen(false);
   };
 
   return (
@@ -602,6 +720,46 @@ const Settings = () => {
                   </label>
                 </div>
 
+                {/* WhatsApp */}
+                <div className="flex items-center justify-between py-2 border-t border-gray-50 dark:border-gray-700/30">
+                  <div className="flex items-start gap-3">
+                    <MessageCircle className="w-4 h-4 text-gray-400 mt-0.5" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-gray-700 dark:text-gray-200">
+                        Notificações por WhatsApp
+                      </span>
+                      {isLoadingWhatsappStatus ? (
+                        <span className="text-[11px] text-gray-400">
+                          Verificando status...
+                        </span>
+                      ) : whatsappAtivo && whatsappStatus?.whatsappNumber ? (
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3" />
+                          Conectado:{" "}
+                          {formatarNumeroExibicao(
+                            whatsappStatus.whatsappNumber,
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-400">
+                          Receba alertas automáticos de vencimento e estoque
+                          pelo WhatsApp.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <label className="inline-flex relative items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={whatsappAtivo}
+                      disabled={isLoadingWhatsappStatus || isDisabling}
+                      onChange={(e) => handleWhatsappToggle(e.target.checked)}
+                    />
+                    <div className="w-10 h-5 bg-gray-200 dark:bg-gray-700 rounded-full peer-focus:ring-0 transition after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:bg-emerald-500 peer-disabled:opacity-50"></div>
+                  </label>
+                </div>
+
                 <div className="flex flex-col gap-1.5 pt-3 border-t border-gray-50 dark:border-gray-700/30">
                   <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                     Idioma Local
@@ -616,56 +774,6 @@ const Settings = () => {
                   />
                 </div>
               </div>
-            </div>
-            {/* Seção de WhatsApp (Fora da anterior) */}
-            <div className="bg-white dark:bg-gray-800 shadow-[0_4px_20px_rgb(0,0,0,0.01)] rounded-xl border border-gray-100 dark:border-gray-700/60 p-6">
-              <div className="flex items-center gap-2 pb-4 mb-5 border-b border-gray-100 dark:border-gray-700/50">
-                <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                  WhatsApp Notificações
-                </h2>
-              </div>
-
-              {!showOtpInput ? (
-                <div className="flex flex-col gap-3">
-                  <input
-                    type="text"
-                    placeholder="(00) 00000-0000"
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
-                    onChange={(e) =>
-                      setWhatsappData({
-                        ...whatsappData,
-                        phone: e.target.value,
-                      })
-                    }
-                  />
-                  <button
-                    type="button" // IMPORTANTE: Adicione type="button" aqui
-                    onClick={handleRequestWhatsAppOtp}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold uppercase transition-all"
-                  >
-                    Enviar Código
-                  </button>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <input
-                    type="text"
-                    placeholder="Digite o código"
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-emerald-500 rounded-lg text-xs"
-                    onChange={(e) =>
-                      setWhatsappData({ ...whatsappData, otp: e.target.value })
-                    }
-                  />
-                  <button
-                    type="button" // IMPORTANTE: Adicione type="button" aqui
-                    onClick={handleVerifyWhatsAppOtp}
-                    className="bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded-lg text-xs font-bold uppercase transition-all"
-                  >
-                    Validar Código
-                  </button>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end pt-2">
@@ -801,83 +909,193 @@ const Settings = () => {
                   !securityData.newPassword ||
                   !securityData.confirmPassword
                 }
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
               >
-                {isChangingPassword ? "Processando..." : "Atualizar Senha"}
+                {isChangingPassword ? "Atualizando..." : "Alterar Senha"}
               </button>
             </div>
           </div>
         </form>
       )}
 
-      {isEditorOpen && selectedFile && (
-        <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-sm bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-2xl rounded-xl p-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditorOpen(false);
-                setSelectedFile(null);
-              }}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* ── Modal sofisticado de vínculo do WhatsApp ─────────────── */}
+      {isWhatsappModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs animate-in fade-in duration-200 p-4">
+          <div className="bg-white dark:bg-gray-900 border-0 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Cabeçalho com faixa colorida, consistente com o AlertDialog */}
+            <div className="relative bg-gradient-to-br from-emerald-500 to-emerald-600 px-6 pt-7 pb-6 text-center">
+              <button
+                onClick={handleFecharModalWhatsapp}
+                className="absolute top-3.5 right-3.5 text-white/70 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
 
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-5">
-              Ajustar Imagem
-            </h3>
+              <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
+                <MessageCircle className="w-7 h-7 text-white" strokeWidth={2} />
+              </div>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                Vincular WhatsApp
+              </h3>
+              <p className="text-[11px] text-white/80 mt-1">
+                {whatsappStep === "phone"
+                  ? "Confirme seu número para receber alertas"
+                  : "Digite o código enviado ao seu WhatsApp"}
+              </p>
 
-            <div className="flex justify-center bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
-              <AvatarEditor
-                ref={editorRef}
-                image={selectedFile}
-                width={180}
-                height={180}
-                border={20}
-                borderRadius={100}
-                color={[31, 41, 55, 0.6]}
-                scale={zoom}
-                rotate={0}
-              />
+              {/* Indicador de etapas */}
+              <div className="flex items-center justify-center gap-1.5 mt-4">
+                <div
+                  className={`h-1.5 rounded-full transition-all ${
+                    whatsappStep === "phone"
+                      ? "w-6 bg-white"
+                      : "w-1.5 bg-white/40"
+                  }`}
+                />
+                <div
+                  className={`h-1.5 rounded-full transition-all ${
+                    whatsappStep === "otp"
+                      ? "w-6 bg-white"
+                      : "w-1.5 bg-white/40"
+                  }`}
+                />
+              </div>
             </div>
 
-            <div className="mt-5 flex items-center gap-3 justify-center">
-              <ZoomIn className="w-4 h-4 text-gray-400" />
-              <input
-                type="range"
-                min="1"
-                max="3"
-                step="0.01"
-                value={zoom}
-                onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-            </div>
+            <div className="px-6 pt-5 pb-6">
+              {whatsappStep === "phone" ? (
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      Número do WhatsApp
+                    </label>
+                    <div className="flex items-center border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-xl overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
+                      <span className="px-3.5 py-3 text-xs font-bold text-gray-500 dark:text-gray-400 border-r border-gray-200 dark:border-gray-700 select-none">
+                        +55
+                      </span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="(11) 99999-9999"
+                        value={phoneNumber}
+                        onChange={(e) =>
+                          setPhoneNumber(formatarInputTelefone(e.target.value))
+                        }
+                        className="w-full px-3.5 py-3 bg-transparent text-xs text-gray-700 dark:text-gray-200 focus:outline-none font-medium"
+                        autoFocus
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                      Enviaremos um código de 6 dígitos para confirmar que este
+                      número é seu.
+                    </p>
+                  </div>
 
-            <div className="flex gap-3 mt-6 justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsEditorOpen(false);
-                  setSelectedFile(null);
-                }}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveCroppedImage}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md"
-              >
-                Confirmar
-              </button>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleFecharModalWhatsapp}
+                      className="px-4 py-2.5 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSubmittingWhatsapp || !phoneNumber}
+                      onClick={handleRequestWhatsAppOtp}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmittingWhatsapp && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      )}
+                      {isSubmittingWhatsapp ? "Enviando..." : "Enviar Código"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                      Código enviado para{" "}
+                      <strong className="text-gray-700 dark:text-gray-200">
+                        +55 {phoneNumber}
+                      </strong>
+                    </span>
+
+                    <div className="flex gap-2 justify-center my-4">
+                      {otpValues.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          ref={(el) => {
+                            otpInputRefs.current[idx] = el;
+                          }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={idx === 0 ? 6 : 1}
+                          value={digit}
+                          onChange={(e) => handleOtpChange(idx, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                          className="w-11 h-13 text-center text-lg font-bold bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                          autoFocus={idx === 0}
+                        />
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={resendCooldown > 0 || isSubmittingWhatsapp}
+                      onClick={handleRequestWhatsAppOtp}
+                      className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:text-gray-400 dark:disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      <RotateCw className="w-3 h-3" />
+                      {resendCooldown > 0
+                        ? `Reenviar código em ${resendCooldown}s`
+                        : "Reenviar código"}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWhatsappStep("phone");
+                        setResendCooldown(0);
+                      }}
+                      className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer mt-4"
+                    >
+                      Alterar número
+                    </button>
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={handleFecharModalWhatsapp}
+                        className="px-4 py-2.5 text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          isSubmittingWhatsapp || otpValues.some((v) => !v)
+                        }
+                        onClick={handleVerifyWhatsAppOtp}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                      >
+                        {isSubmittingWhatsapp && (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        )}
+                        {isSubmittingWhatsapp ? "Validando..." : "Validar"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
+      {/* AlertDialog padrão do Shadcn para avisos/erros */}
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent className="max-w-sm bg-white dark:bg-gray-900 border-0 shadow-2xl rounded-2xl p-0 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div
