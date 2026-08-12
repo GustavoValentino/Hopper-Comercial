@@ -474,13 +474,15 @@ const Settings = () => {
     if (value.length > 1) {
       const digits = value.replace(/\D/g, "").split("").slice(0, 6);
       const newOtp = ["", "", "", "", "", ""];
+
       digits.forEach((d, idx) => {
         newOtp[idx] = d;
       });
+
       setOtpValues(newOtp);
-      if (digits.length === 6) {
-        otpInputRefs.current[5]?.focus();
-      }
+
+      const nextFocus = digits.length < 6 ? digits.length : 5;
+      otpInputRefs.current[nextFocus]?.focus();
       return;
     }
 
@@ -488,6 +490,7 @@ const Settings = () => {
     newOtp[index] = value.replace(/\D/g, "");
     setOtpValues(newOtp);
 
+    // Avança o foco automaticamente
     if (value && index < 5) {
       otpInputRefs.current[index + 1]?.focus();
     }
@@ -1031,10 +1034,15 @@ const Settings = () => {
                           }}
                           type="text"
                           inputMode="numeric"
-                          maxLength={idx === 0 ? 6 : 1}
+                          maxLength={1}
                           value={digit}
                           onChange={(e) => handleOtpChange(idx, e.target.value)}
                           onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                          onPaste={(e) => {
+                            e.preventDefault();
+                            const pastedData = e.clipboardData.getData("text");
+                            handleOtpChange(0, pastedData);
+                          }}
                           className="w-11 h-13 text-center text-lg font-bold bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-800 dark:text-gray-100 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                           autoFocus={idx === 0}
                         />
