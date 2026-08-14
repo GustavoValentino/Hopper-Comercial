@@ -667,7 +667,7 @@ const Settings = () => {
               <div className="flex items-center gap-2 pb-4 mb-5 border-b border-gray-100 dark:border-gray-700/50">
                 <Globe className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <h2 className="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
-                  Preferências de Interface
+                  Notificações e Interface
                 </h2>
               </div>
 
