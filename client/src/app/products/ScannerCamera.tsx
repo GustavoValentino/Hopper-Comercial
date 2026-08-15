@@ -9,7 +9,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  Barcode,
+  Lightbulb,
 } from "lucide-react";
 
 type ScannerCameraProps = {
@@ -148,10 +148,6 @@ const ScannerCamera = ({ onScanSuccess, onClose }: ScannerCameraProps) => {
                 <p className="text-sm font-bold text-white">
                   Acesso à câmera necessário
                 </p>
-                <p className="text-[11px] text-gray-400 mt-1.5 leading-relaxed max-w-[240px]">
-                  Para escanear o código de barras, precisamos que você autorize
-                  o uso da câmera.
-                </p>
               </div>
               <button
                 type="button"
@@ -241,10 +237,15 @@ const ScannerCamera = ({ onScanSuccess, onClose }: ScannerCameraProps) => {
             </div>
           )}
         </div>
-
         {/* FOOTER */}
         <div className="px-5 py-3 bg-gray-50 dark:bg-gray-800/40 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          {estado === "solicitando" ||
+          estado === "escaneando" ||
+          estado === "carregando" ? (
+            <Lightbulb className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+          )}
           <p className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
             {estado === "escaneando"
               ? "Scanner ativo — mantenha o código dentro da área"
