@@ -142,7 +142,7 @@ const ScannerCamera = ({ onScanSuccess, onClose }: ScannerCameraProps) => {
           {estado === "solicitando" && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 px-6 bg-gray-950">
               <div className="w-16 h-16 rounded-2xl bg-emerald-950/60 border border-emerald-800/40 flex items-center justify-center">
-                <Barcode className="w-8 h-8 text-emerald-400" />
+                <ScanLine className="w-8 h-8 text-emerald-400" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-bold text-white">
