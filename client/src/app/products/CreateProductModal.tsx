@@ -32,6 +32,7 @@ import {
   ImagePlus,
   ZoomIn,
   Trash2,
+  Barcode,
 } from "lucide-react";
 
 type ProductFormData = {
@@ -464,7 +465,7 @@ const CreateProductModal = ({
                   onClick={() => setIsCameraAberta(true)}
                   className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 transition-all flex items-center justify-center shadow-xs active:scale-95 cursor-pointer"
                 >
-                  <Camera className="w-4 h-4" />
+                  <Barcode className="w-4 h-4" />
                 </button>
               </div>
               {skuErro && (

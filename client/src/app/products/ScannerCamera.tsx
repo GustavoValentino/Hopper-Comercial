@@ -159,7 +159,7 @@ const ScannerCamera = ({ onScanSuccess, onClose }: ScannerCameraProps) => {
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.97] text-white text-sm font-bold px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/30 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
-                Permitir câmera e escanear
+                Permitir câmera
               </button>
             </div>
           )}
