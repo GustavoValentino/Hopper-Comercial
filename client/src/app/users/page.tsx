@@ -14,6 +14,7 @@ import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import { ptBR } from "@mui/x-data-grid/locales";
 import Image from "next/image";
 import { useSocket } from "@/app/dashboardWrapper";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import {
   Trash2,
   ShieldAlert,
@@ -35,8 +36,9 @@ import {
   SlidersHorizontal,
   ChevronDown,
   CheckCircle2Icon,
+  AlertTriangleIcon,
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 
 // ============================================================
 // TIPOS
@@ -360,9 +362,7 @@ const UsersPage = () => {
 
   const handleSendEmailNotification = () => {
     if (!notifyTarget) return;
-    const subject = encodeURIComponent(
-      "⚠️ Braincore — Mensagem Administrativa",
-    );
+    const subject = encodeURIComponent("⚠️ Hopper — Mensagem Administrativa");
     const body = encodeURIComponent(notifyMessage);
     window.open(`mailto:${notifyTarget.email}?subject=${subject}&body=${body}`);
     showToast(`E-mail preparado para ${notifyTarget.name}.`, "success");
@@ -557,6 +557,61 @@ const UsersPage = () => {
       },
     },
   ];
+
+  // ── Loader Lottie animation ─────────────────────────────────────────
+  const [showLoader, setShowLoader] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowLoader(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading || showLoader) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <DotLottieReact
+          src="/hD4wOlh2yY.json"
+          loop
+          autoplay
+          style={{ width: 180, height: 180 }}
+        />
+        <div className="text-center space-y-1.5">
+          <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+            Carregando colaboradores
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Buscando dados dos operadores cadastrados...
+          </p>
+        </div>
+        <div className="flex gap-3 mt-2">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="w-32 h-20 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse border border-gray-100 dark:border-gray-700/50"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/40 flex items-center justify-center">
+          <AlertTriangleIcon className="w-7 h-7 text-red-500 dark:text-red-400" />
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
+            Erro ao carregar colaboradores
+          </p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">
+            Não foi possível buscar os dados. Tente recarregar a página.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col space-y-6 relative text-gray-900 dark:text-gray-100">
