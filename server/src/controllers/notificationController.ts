@@ -8,7 +8,7 @@ import {
   calcularDiasRestantes,
 } from "../lib/dateUtils.js";
 import { enviarEmail, templateAlertaVencimento } from "../lib/mailer.js";
-import { notificarWhatsappSeAtivo } from "../lib/whatsappNotify.js"; // Novo: Import do helper de WhatsApp
+import { notificarWhatsappSeAtivo } from "../lib/whatsappNotify.js";
 
 const prisma = new PrismaClient();
 
@@ -42,6 +42,7 @@ async function dispararPushEEmail(
   userEmail: string | null | undefined,
   produtoNome: string,
   produtoId: string,
+  loteNumero: string,
   mensagemTexto: string,
   mensagemDias: string,
   setor: string,
@@ -56,7 +57,7 @@ async function dispararPushEEmail(
         title: "Alerta de Vencimento - Hopper",
         body: mensagemTexto,
         url: "/",
-        tag: `produto-${produtoId}`,
+        tag: `produto-${produtoId}-lote-${loteNumero}`,
       });
 
       for (const sub of userSubscriptions) {
@@ -89,13 +90,13 @@ async function dispararPushEEmail(
 
   if (userEmail) {
     console.log(
-      `[mailer] Disparando alerta para ${userEmail} (produto: ${produtoNome}).`,
+      `[mailer] Disparando alerta para ${userEmail} (produto: ${produtoNome} - Lote: ${loteNumero}).`,
     );
     enviarEmail({
       to: userEmail,
-      subject: `[Hopper] ${produtoNome} — ${mensagemDias}`,
+      subject: `[Hopper] ${produtoNome} (Lote: ${loteNumero}) — ${mensagemDias}`,
       html: templateAlertaVencimento({
-        nomeProduto: produtoNome,
+        nomeProduto: `${produtoNome} [Lote: ${loteNumero}]`,
         setor,
         mensagemDias,
         responsavel: null,
@@ -105,95 +106,102 @@ async function dispararPushEEmail(
 }
 
 /**
- * Varre TODOS os produtos do sistema (de todos os usuários) buscando
+ * Varre os LOTES de todos os produtos do sistema buscando
  * os que entraram na janela crítica de vencimento, e gera o alerta
  * (notificação interna + push + e-mail + WhatsApp) para o DONO de cada produto.
- *
- * Chamada pelo cron job — verificação automática periódica,
- * independente de qualquer usuário estar logado.
  */
 export async function verificarVencimentosCriticos(): Promise<void> {
   const hoje = getHojeNoFusoBrasil();
-  // Ajuste: A janela de alerta agora vai de 'hoje' até 'hoje + 15 dias'
   const limiteCritico = new Date(hoje);
   limiteCritico.setUTCDate(limiteCritico.getUTCDate() + JANELA_ALERTA_DIAS);
 
-  const produtosCriticos = await prisma.product.findMany({
-    where: {
-      expirationDate: {
-        gte: hoje, // Garante que apenas produtos NÃO vencidos (ou vencendo hoje) sejam pegos
-        lte: limiteCritico,
-      },
-    },
+  // Busca produtos incluindo seus lotes e dados do usuário proprietário
+  const produtosComLotes = await prisma.product.findMany({
     include: {
+      lotes: true,
       user: {
         select: { id: true, name: true, email: true },
       },
     },
   });
 
-  console.log(
-    `[cron] ${produtosCriticos.length} produto(s) na janela de alerta.`,
-  );
+  let totalLotesNaJanela = 0;
 
-  for (const produto of produtosCriticos) {
-    if (!produto.expirationDate || !produto.user) continue;
+  for (const produto of produtosComLotes) {
+    if (!produto.user || !produto.lotes || produto.lotes.length === 0) continue;
 
     const donoId = produto.user.id;
-    const expDate = normalizarDataUTC(produto.expirationDate);
-
-    // Cálculo de dias exato para a mensagem
-    const diffTime = expDate.getTime() - hoje.getTime();
-    const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    // Evita duplicar notificações se o job rodar várias vezes no mesmo dia
-    const alertaExistente = await prisma.notification.findFirst({
-      where: {
-        userId: donoId,
-        productId: produto.productId,
-        type: "CRITICAL_EXPIRY",
-        createdAt: { gte: hoje }, // Verifica se já criamos hoje
-      },
-    });
-
-    if (alertaExistente) continue;
-
-    const mensagemDias =
-      diasRestantes <= 0 ? "vence HOJE!" : `vence em ${diasRestantes} dias!`;
     const setor =
       (produto as any).category || (produto as any).section || "Geral";
-    const mensagemTexto = `[URGENTE] O lote do produto '${produto.name}' no setor ${setor} ${mensagemDias}.`;
 
-    // 1. Notificação Interna
-    await prisma.notification.create({
-      data: {
-        userId: donoId,
-        productId: produto.productId,
-        type: "CRITICAL_EXPIRY",
-        message: mensagemTexto,
-        isRead: false,
-      },
-    });
+    for (const lote of produto.lotes) {
+      if (!lote.expirationDate) continue;
 
-    // 2. Push e E-mail
-    await dispararPushEEmail(
-      donoId,
-      produto.user.email,
-      produto.name,
-      produto.productId,
-      mensagemTexto,
-      mensagemDias,
-      setor,
-    );
+      const expDate = normalizarDataUTC(lote.expirationDate);
+      const diffTime = expDate.getTime() - hoje.getTime();
+      const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
-    if (diasRestantes <= 5) {
-      await notificarWhatsappSeAtivo(
-        donoId,
-        `⚠️ *Hopper — Alerta de validade*\n\nO produto *${produto.name}* no setor *${setor}* ${mensagemDias}\n\nVerifique a gôndola agora.`,
-      );
+      // Verifica se está dentro da janela de alerta (não vencido há muito tempo, e até o limite crítico)
+      if (diasRestantes >= 0 && diasRestantes <= JANELA_ALERTA_DIAS) {
+        totalLotesNaJanela++;
+        const loteIdOuNumero = lote.lotNumber || "Principal";
+
+        // Evita duplicar notificações se o job rodar várias vezes no mesmo dia para o mesmo lote
+        const alertaExistente = await prisma.notification.findFirst({
+          where: {
+            userId: donoId,
+            productId: produto.productId,
+            type: "CRITICAL_EXPIRY",
+            message: { contains: `lote ${loteIdOuNumero}` },
+            createdAt: { gte: hoje },
+          },
+        });
+
+        if (alertaExistente) continue;
+
+        const mensagemDias =
+          diasRestantes === 0
+            ? "vence HOJE!"
+            : `vence em ${diasRestantes} dias!`;
+        const mensagemTexto = `[URGENTE] O produto '${produto.name}' (Lote: ${loteIdOuNumero}) no setor ${setor} ${mensagemDias}.`;
+
+        // 1. Notificação Interna
+        await prisma.notification.create({
+          data: {
+            userId: donoId,
+            productId: produto.productId,
+            type: "CRITICAL_EXPIRY",
+            message: mensagemTexto,
+            isRead: false,
+          },
+        });
+
+        // 2. Push e E-mail
+        await dispararPushEEmail(
+          donoId,
+          produto.user.email,
+          produto.name,
+          produto.productId,
+          loteIdOuNumero,
+          mensagemTexto,
+          mensagemDias,
+          setor,
+        );
+
+        // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
+        if (diasRestantes <= 5) {
+          await notificarWhatsappSeAtivo(
+            donoId,
+            `⚠️ *Hopper — Alerta de validade*\n\nO produto *${produto.name}* (Lote: *${loteIdOuNumero}*) no setor *${setor}* ${mensagemDias}\n\nVerifique a gôndola agora.`,
+          );
+        }
+      }
     }
   }
+
+  console.log(
+    `[cron] ${totalLotesNaJanela} lote(s) processado(s) na janela de alerta de vencimento.`,
+  );
 }
 
 export const getNotifications = async (
@@ -225,13 +233,7 @@ export const getNotifications = async (
     const produtosRelacionados = productIds.length
       ? await prisma.product.findMany({
           where: { productId: { in: productIds } },
-          select: {
-            productId: true,
-            name: true,
-            imageUrl: true,
-            section: true,
-            expirationDate: true,
-          },
+          include: { lotes: true },
         })
       : [];
 
@@ -241,6 +243,23 @@ export const getNotifications = async (
 
     const notificationsComProduto = notifications.map((n) => {
       const produto = n.productId ? produtosPorId.get(n.productId) : undefined;
+
+      // Encontra a menor data de vencimento entre os lotes do produto (lote mais próximo de vencer)
+      let menorDiasRestantes: number | null = null;
+      if (produto && produto.lotes && produto.lotes.length > 0) {
+        const diasDosLotes = produto.lotes
+          .map((lote) =>
+            lote.expirationDate
+              ? calcularDiasRestantes(lote.expirationDate)
+              : null,
+          )
+          .filter((d): d is number => d !== null);
+
+        if (diasDosLotes.length > 0) {
+          menorDiasRestantes = Math.min(...diasDosLotes);
+        }
+      }
+
       return {
         ...n,
         product: produto
@@ -248,9 +267,7 @@ export const getNotifications = async (
               name: produto.name,
               imageUrl: produto.imageUrl,
               section: produto.section,
-              diasRestantes: produto.expirationDate
-                ? calcularDiasRestantes(produto.expirationDate)
-                : null,
+              diasRestantes: menorDiasRestantes,
             }
           : null,
       };
