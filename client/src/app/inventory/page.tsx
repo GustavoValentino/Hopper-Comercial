@@ -329,6 +329,7 @@ const Inventory = () => {
       field: "sku",
       headerName: "Código",
       width: 130,
+      minWidth: 120,
       renderCell: (params) => (
         <div className="flex items-center h-full gap-1.5 font-mono text-blue-600 dark:text-blue-400 font-bold text-xs">
           <BarcodeIcon className="w-4 h-4 shrink-0" />
@@ -339,7 +340,8 @@ const Inventory = () => {
     {
       field: "name",
       headerName: "Nome do Produto",
-      width: 220,
+      flex: 1.5,
+      minWidth: 200,
       renderCell: (params) => (
         <span className="font-semibold uppercase text-gray-800 dark:text-gray-100 tracking-tight flex items-center h-full text-xs truncate">
           {params.value}
@@ -349,7 +351,8 @@ const Inventory = () => {
     {
       field: "note",
       headerName: "Observação",
-      width: 150,
+      flex: 1,
+      minWidth: 160,
       renderCell: (params) => {
         const observacao = params.value;
         if (!observacao) {
@@ -361,7 +364,7 @@ const Inventory = () => {
         }
         return (
           <div className="flex items-center justify-between w-full h-full pr-1">
-            <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-br-[90px]">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate">
               {observacao}
             </span>
             <button
@@ -378,7 +381,8 @@ const Inventory = () => {
     {
       field: "weight",
       headerName: "Peso / Vol.",
-      width: 110,
+      width: 120,
+      minWidth: 110,
       renderCell: (params) => (
         <div className="flex items-center h-full gap-1.5 text-gray-600 dark:text-gray-200 font-medium text-xs">
           <ScaleIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
@@ -389,7 +393,8 @@ const Inventory = () => {
     {
       field: "lotes",
       headerName: "Lotes e Validades",
-      width: 170,
+      width: 160,
+      minWidth: 150,
       sortable: false,
       renderCell: (params) => {
         const lotes = params.value || [];
@@ -422,7 +427,8 @@ const Inventory = () => {
     {
       field: "stockQuantity",
       headerName: "Estoque Total",
-      width: 120,
+      width: 130,
+      minWidth: 120,
       type: "number",
       valueGetter: (params, row) => {
         const lotes = row.lotes || [];
@@ -452,6 +458,7 @@ const Inventory = () => {
       field: "actions",
       headerName: "Ações",
       width: 100,
+      minWidth: 100,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -541,7 +548,7 @@ const Inventory = () => {
           </span>
         </div>
 
-        <div className="w-full h-[520px] overflow-hidden">
+        <div className="w-full h-[520px] overflow-hidden [&_.MuiDataGrid-scrollbarFiller--header]:bg-gray-50 [&_.MuiDataGrid-scrollbarFiller--header]:dark:bg-gray-800 [&_.MuiDataGrid-scrollbarFiller--header]:border-b [&_.MuiDataGrid-scrollbarFiller--header]:border-gray-100 [&_.MuiDataGrid-scrollbarFiller--header]:dark:border-gray-700">
           <DataGrid
             rows={filteredProducts}
             columns={columns}

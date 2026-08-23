@@ -30,24 +30,37 @@ export const getUsers = async (req: Request, res: Response) => {
         createdAt: true,
         language: true,
         Products: {
-          where: { expirationDate: { lte: dataLimiteCritica() } },
-          select: { productId: true },
+          select: {
+            productId: true,
+            lotes: {
+              where: { expirationDate: { lte: dataLimiteCritica() } },
+              select: { loteId: true },
+            },
+          },
         },
       },
       orderBy: { name: "asc" },
     });
 
-    const formattedUsers = users.map((user) => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      image: user.image,
-      createdAt: user.createdAt,
-      language: user.language,
-      criticalProductsCount: user.Products.length,
-      isOnline: false,
-    }));
+    const formattedUsers = users.map((user) => {
+      // Conta quantos lotes críticos o usuário possui em seus produtos
+      const criticalProductsCount = user.Products.reduce(
+        (acc, prod) => acc + prod.lotes.length,
+        0,
+      );
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        image: user.image,
+        createdAt: user.createdAt,
+        language: user.language,
+        criticalProductsCount,
+        isOnline: false,
+      };
+    });
 
     const totalCriticalSystem = formattedUsers.reduce(
       (acc, user) => acc + user.criticalProductsCount,
@@ -181,10 +194,21 @@ export const updateUserSettings = async (
       },
       include: {
         Products: {
-          where: { expirationDate: { lte: dataLimiteCritica() } },
+          select: {
+            productId: true,
+            lotes: {
+              where: { expirationDate: { lte: dataLimiteCritica() } },
+              select: { loteId: true },
+            },
+          },
         },
       },
     });
+
+    const criticalProductsCount = updatedUser.Products.reduce(
+      (acc, prod) => acc + prod.lotes.length,
+      0,
+    );
 
     res.status(200).json({
       success: true,
@@ -197,7 +221,7 @@ export const updateUserSettings = async (
         image: updatedUser.image,
         language: updatedUser.language,
         createdAt: updatedUser.createdAt,
-        criticalProductsCount: updatedUser.Products.length,
+        criticalProductsCount,
         isOnline: true,
       },
     });
