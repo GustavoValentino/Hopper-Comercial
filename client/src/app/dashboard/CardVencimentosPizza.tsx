@@ -12,19 +12,31 @@ import {
 
 Chart.register(ArcElement, Tooltip, Legend, DoughnutController);
 
+interface LoteData {
+  loteId: string;
+  expirationDate: string;
+  stockQuantity: number;
+  lotNumber?: string | null;
+}
+
 interface ProdutoOriginal {
   productId: string;
   name: string;
-  expirationDate?: string;
+  lotes?: LoteData[];
   [key: string]: any;
 }
 
-interface ProdutoProcessado extends ProdutoOriginal {
+interface LoteProcessado {
+  idUnico: string; // ID combinado de produto + lote para garantir chave única na lista
+  productId: string;
+  name: string;
+  lotNumber?: string | null;
   tag: string;
   cor: string;
   corBg: string;
   diff: number;
   venc: string;
+  stockQuantity: number;
 }
 
 interface GrupoCategoria {
@@ -40,17 +52,22 @@ const CardVencimentosPizza = () => {
   const chartRef = useRef<Chart<"doughnut"> | null>(null);
   const [filtroTag, setFiltroTag] = useState<string | null>(null);
 
-  const produtosProcessados = useMemo<ProdutoProcessado[]>(() => {
-    if (!products) return [];
+  const lotesProcessados = useMemo<LoteProcessado[]>(() => {
+    if (!products || !Array.isArray(products)) return [];
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
-    return products
-      .map((p: ProdutoOriginal) => {
-        const dataVenc = p.expirationDate
-          ? new Date(`${p.expirationDate.substring(0, 10)}T00:00:00`)
+    const listaLotes: LoteProcessado[] = [];
+
+    products.forEach((p: ProdutoOriginal) => {
+      if (!p.lotes || !Array.isArray(p.lotes)) return;
+
+      p.lotes.forEach((lote) => {
+        const dataVenc = lote.expirationDate
+          ? new Date(`${lote.expirationDate.substring(0, 10)}T00:00:00`)
           : null;
+
         const diff = dataVenc
           ? Math.ceil(
               (dataVenc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
@@ -79,13 +96,26 @@ const CardVencimentosPizza = () => {
           corBg = "rgba(52,211,153,0.10)";
         }
 
-        const venc = p.expirationDate
-          ? p.expirationDate.substring(0, 10).split("-").reverse().join("/")
+        const venc = lote.expirationDate
+          ? lote.expirationDate.substring(0, 10).split("-").reverse().join("/")
           : "—";
 
-        return { ...p, tag, cor, corBg, diff, venc };
-      })
-      .sort((a, b) => a.diff - b.diff);
+        listaLotes.push({
+          idUnico: `${p.productId}-${lote.loteId}`,
+          productId: p.productId,
+          name: p.name,
+          lotNumber: lote.lotNumber,
+          tag,
+          cor,
+          corBg,
+          diff,
+          venc,
+          stockQuantity: lote.stockQuantity,
+        });
+      });
+    });
+
+    return listaLotes.sort((a, b) => a.diff - b.diff);
   }, [products]);
 
   const ORDEM_TAGS = ["Vencido", "Crítico", "Atenção", "Moderado", "Seguro"];
@@ -93,24 +123,24 @@ const CardVencimentosPizza = () => {
   const grupos = useMemo<GrupoCategoria[]>(() => {
     const counts: Record<string, Omit<GrupoCategoria, "tag">> = {};
 
-    produtosProcessados.forEach((p) => {
-      if (!counts[p.tag]) {
-        counts[p.tag] = { count: 0, cor: p.cor, corBg: p.corBg };
+    lotesProcessados.forEach((l) => {
+      if (!counts[l.tag]) {
+        counts[l.tag] = { count: 0, cor: l.cor, corBg: l.corBg };
       }
-      counts[p.tag].count++;
+      counts[l.tag].count++;
     });
 
     return ORDEM_TAGS.filter((tag) => counts[tag]).map((tag) => ({
       tag,
       ...counts[tag],
     }));
-  }, [produtosProcessados]);
+  }, [lotesProcessados]);
 
-  const total = produtosProcessados.length;
+  const total = lotesProcessados.length;
 
   const listaExibida = filtroTag
-    ? produtosProcessados.filter((p) => p.tag === filtroTag)
-    : produtosProcessados;
+    ? lotesProcessados.filter((l) => l.tag === filtroTag)
+    : lotesProcessados;
 
   useEffect(() => {
     if (!canvasRef.current || grupos.length === 0) return;
@@ -155,7 +185,7 @@ const CardVencimentosPizza = () => {
               title: (items) => grupos[items[0].dataIndex].tag,
               label: (ctx) => {
                 const c = ctx.parsed;
-                return ` ${c} ${c === 1 ? "produto" : "produtos"}`;
+                return ` ${c} ${c === 1 ? "lote" : "lotes"}`;
               },
             },
           },
@@ -203,10 +233,10 @@ const CardVencimentosPizza = () => {
     );
   }
 
-  if (produtosProcessados.length === 0) {
+  if (lotesProcessados.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-gray-400 dark:text-gray-500 italic">
-        Nenhum produto cadastrado para análise.
+        Nenhum lote cadastrado para análise.
       </div>
     );
   }
@@ -226,7 +256,7 @@ const CardVencimentosPizza = () => {
             {filtroTag ? grupos.find((g) => g.tag === filtroTag)?.count : total}
           </p>
           <p className="text-[9px] font-bold text-gray-400 uppercase">
-            {filtroTag || "Itens"}
+            {filtroTag || "Lotes"}
           </p>
         </div>
       </figure>
@@ -237,7 +267,7 @@ const CardVencimentosPizza = () => {
             aria-live="polite"
             className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest truncate mr-2"
           >
-            {filtroTag ? `Filtrado: ${filtroTag}` : "Todos os produtos"}
+            {filtroTag ? `Filtrado: ${filtroTag}` : "Todos os lotes"}
           </h3>
           {filtroTag && (
             <button
@@ -254,29 +284,30 @@ const CardVencimentosPizza = () => {
           <ul className="flex flex-col gap-2 m-0 p-0 list-none w-full">
             {listaExibida.length === 0 ? (
               <li className="flex items-center justify-center h-20 text-xs text-gray-400 dark:text-gray-500 italic">
-                Nenhum produto nesta categoria.
+                Nenhum lote nesta categoria.
               </li>
             ) : (
-              listaExibida.map((p) => (
+              listaExibida.map((l) => (
                 <li
-                  key={p.productId}
+                  key={l.idUnico}
                   className="flex items-center justify-between p-2.5 rounded-lg transition-all border w-full box-border"
-                  style={{ background: p.corBg, borderColor: p.cor + "30" }}
+                  style={{ background: l.corBg, borderColor: l.cor + "30" }}
                 >
                   <div className="flex flex-col min-w-0 flex-1 mr-2">
                     <span className="text-[11px] font-bold text-gray-800 dark:text-gray-200 truncate block w-full">
-                      {p.name}
+                      {l.name}
                     </span>
                     <span className="text-[9px] text-gray-500 dark:text-gray-400 font-mono mt-0.5 truncate">
-                      venc. {p.venc}
+                      {l.lotNumber ? `lote: ${l.lotNumber} • ` : ""}venc.{" "}
+                      {l.venc} ({l.stockQuantity} un)
                     </span>
                   </div>
                   <span
                     className="text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0"
-                    style={{ borderColor: p.cor, color: p.cor }}
-                    aria-label={`Status: ${p.tag}`}
+                    style={{ borderColor: l.cor, color: l.cor }}
+                    aria-label={`Status: ${l.tag}`}
                   >
-                    {p.tag}
+                    {l.tag}
                   </span>
                 </li>
               ))

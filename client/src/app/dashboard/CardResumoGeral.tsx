@@ -19,9 +19,16 @@ interface ItemAlerta {
   tipo: "vencido" | "proximo" | "critico";
 }
 
-interface ProdutoData {
+interface LoteData {
+  loteId: string;
+  expirationDate: string;
   stockQuantity: number;
-  expirationDate?: string;
+}
+
+interface ProdutoData {
+  productId: string;
+  name: string;
+  lotes?: LoteData[];
   [key: string]: any;
 }
 
@@ -39,22 +46,38 @@ const CardResumoGeral = () => {
     let totalVencidos = 0;
 
     produtos.forEach((produto) => {
-      if (produto.stockQuantity <= LIMITE_CRITICO) {
+      // 1. Calcula o estoque total somando os lotes do produto
+      const estoqueTotal =
+        produto.lotes && Array.isArray(produto.lotes)
+          ? produto.lotes.reduce(
+              (acc, lote) => acc + (lote.stockQuantity || 0),
+              0,
+            )
+          : 0;
+
+      if (estoqueTotal <= LIMITE_CRITICO) {
         totalEstoqueCritico++;
       }
 
-      if (produto.expirationDate) {
-        const stringDataPura = produto.expirationDate.substring(0, 10);
-        const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+      // 2. Analisa as validades individualmente por lote
+      if (produto.lotes && Array.isArray(produto.lotes)) {
+        produto.lotes.forEach((lote) => {
+          if (!lote.expirationDate) return;
 
-        const diferencaTempo = dataValidade.getTime() - hoje.getTime();
-        const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+          const stringDataPura = lote.expirationDate.substring(0, 10);
+          const dataValidade = new Date(`${stringDataPura}T00:00:00`);
 
-        if (diferencaDias < 0) {
-          totalVencidos++;
-        } else if (diferencaDias <= 15) {
-          totalVencimentoProximo++;
-        }
+          const diferencaTempo = dataValidade.getTime() - hoje.getTime();
+          const diferencaDias = Math.ceil(
+            diferencaTempo / (1000 * 60 * 60 * 24),
+          );
+
+          if (diferencaDias < 0) {
+            totalVencidos++;
+          } else if (diferencaDias <= 15) {
+            totalVencimentoProximo++;
+          }
+        });
       }
     });
 
@@ -62,7 +85,7 @@ const CardResumoGeral = () => {
       {
         label: "Produtos Vencidos",
         valor: totalVencidos,
-        sufixo: totalVencidos === 1 ? "item" : "itens",
+        sufixo: totalVencidos === 1 ? "lote" : "lotes",
         subtext: "Retirar da gôndola imediatamente",
         icone: PackageX,
         tipo: "vencido",

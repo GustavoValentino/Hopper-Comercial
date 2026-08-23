@@ -1,18 +1,33 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { updateUser } from "@/state";
 
+export interface Lote {
+  loteId: string;
+  productId: string;
+  lotNumber?: string | null;
+  expirationDate: string;
+  stockQuantity: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Product {
   productId: string;
   sku: string;
   name: string;
-  weight?: number;
+  weight?: number | null;
   unit: "KG" | "ML_G";
-  expirationDate?: string;
-  note?: string;
-  stockQuantity: number;
   category: string;
+  section: string;
+  note?: string | null;
+  imageUrl?: string | null;
+  userId: string;
+  lotes: Lote[];
+  // Campos virtuais de compatibilidade calculados pelo backend
+  stockQuantity?: number;
+  expirationDate?: string | null;
+  lotNumber?: string | null;
   updatedAt?: string;
-  imageUrl?: string;
 }
 
 export interface ProductFormData {
@@ -20,10 +35,16 @@ export interface ProductFormData {
   sku: string;
   name: string;
   weight?: number;
-  expirationDate?: string;
-  note?: string;
-  stockQuantity: number;
+  unit?: "KG" | "ML_G";
   category: string;
+  section: string;
+  note?: string;
+  imageUrl?: string;
+  lotes: {
+    lotNumber?: string;
+    expirationDate: string;
+    stockQuantity: number;
+  }[];
 }
 
 export interface DashboardMetrics {

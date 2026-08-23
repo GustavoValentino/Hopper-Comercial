@@ -14,8 +14,18 @@ import {
   Cell,
 } from "recharts";
 
+// Interface ajustada para refletir a estrutura correta com lotes
+interface LoteData {
+  loteId: string;
+  expirationDate: string;
+  stockQuantity: number;
+  lotNumber?: string | null;
+}
+
 interface ProdutoData {
-  expirationDate?: string;
+  productId: string;
+  name: string;
+  lotes?: LoteData[];
   [key: string]: any;
 }
 
@@ -34,25 +44,30 @@ const CardAlertaVencimento = () => {
     hoje.setHours(0, 0, 0, 0);
 
     produtos.forEach((produto) => {
-      if (!produto.expirationDate) return;
+      // Verifica se o produto possui lotes cadastrados
+      if (!produto.lotes || !Array.isArray(produto.lotes)) return;
 
-      const stringDataPura = produto.expirationDate.substring(0, 10);
-      const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+      produto.lotes.forEach((lote) => {
+        if (!lote.expirationDate) return;
 
-      const diferencaTempo = dataValidade.getTime() - hoje.getTime();
-      const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+        const stringDataPura = lote.expirationDate.substring(0, 10);
+        const dataValidade = new Date(`${stringDataPura}T00:00:00`);
 
-      if (diferencaDias <= 7) {
-        ate7Dias++;
-      } else if (diferencaDias <= 15) {
-        de8a15Dias++;
-      } else if (diferencaDias <= 30) {
-        de16a30Dias++;
-      } else if (diferencaDias <= 60) {
-        proximoMes++;
-      } else {
-        emDia++;
-      }
+        const diferencaTempo = dataValidade.getTime() - hoje.getTime();
+        const diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+
+        if (diferencaDias <= 7) {
+          ate7Dias++;
+        } else if (diferencaDias <= 15) {
+          de8a15Dias++;
+        } else if (diferencaDias <= 30) {
+          de16a30Dias++;
+        } else if (diferencaDias <= 60) {
+          proximoMes++;
+        } else {
+          emDia++;
+        }
+      });
     });
 
     return {
@@ -123,9 +138,7 @@ const CardAlertaVencimento = () => {
                   {totalCriticos}
                 </p>
                 <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 pb-1">
-                  {totalCriticos === 1
-                    ? "produto sob risco"
-                    : "produtos sob risco"}
+                  {totalCriticos === 1 ? "lote sob risco" : "lotes sob risco"}
                 </p>
               </div>
             </div>

@@ -23,6 +23,10 @@ import {
   CalendarDaysIcon,
   PrinterIcon,
   Search,
+  EyeIcon,
+  X,
+  PackageIcon,
+  FileTextIcon,
 } from "lucide-react";
 
 import {
@@ -44,6 +48,8 @@ const Inventory = () => {
 
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [productToEdit, setProductToEdit] = useState<any>(null);
+  const [productForLotsModal, setProductForLotsModal] = useState<any>(null);
+  const [productForNoteModal, setProductForNoteModal] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredProducts = (products || []).filter((p) => {
@@ -77,7 +83,7 @@ const Inventory = () => {
     }
   };
 
-  const formatarDataPDF = (isoString: string) => {
+  const formatarData = (isoString: string) => {
     if (!isoString) return "—";
     const stringDataPura = isoString.substring(0, 10);
     const [ano, mes, dia] = stringDataPura.split("-");
@@ -107,14 +113,22 @@ const Inventory = () => {
       return;
     }
     const headers =
-      "SKU,Nome,Categoria,Observacao,Estoque,Peso_Medida,Vencimento\n";
+      "SKU,Nome,Categoria,Observacao,Estoque_Total,Peso_Medida,Lotes\n";
     const csvRows = products
       .map((p) => {
-        const dataVencimentoPura = p.expirationDate
-          ? p.expirationDate.substring(0, 10)
-          : "N/A";
+        const lotesStr = (p.lotes || [])
+          .map(
+            (l: any) =>
+              `[Lote: ${l.lotNumber || "S/N"}, Qtd: ${l.stockQuantity}, Val: ${formatarData(l.expirationDate)}]`,
+          )
+          .join(" | ");
         const pesoFormatadoCSV = formatarPesoMetrico(p.weight, p.unit);
-        return `${p.sku || "N/A"},${p.name},${p.category},${p.note || ""},${p.stockQuantity},${pesoFormatadoCSV},${dataVencimentoPura}`;
+        const qtdTotal = (p.lotes || []).reduce(
+          (acc: number, l: any) => acc + (l.stockQuantity || 0),
+          0,
+        );
+        const obsLimpa = (p.note || "").replace(/"/g, '""');
+        return `${p.sku || "N/A"},${p.name},${p.category},"${obsLimpa}",${qtdTotal},${pesoFormatadoCSV},"${lotesStr}"`;
       })
       .join("\n");
 
@@ -132,7 +146,6 @@ const Inventory = () => {
     toast.success("Planilha CSV gerada!");
   };
 
-  // 📄 PDF COM IDENTIDADE VISUAL HOPPER
   const handleExportPDF = async () => {
     if (!products || products.length === 0) {
       toast.error("Não há dados para gerar o relatório.");
@@ -147,7 +160,6 @@ const Inventory = () => {
     const PW = 210;
     const PH = doc.internal.pageSize.height;
 
-    // ── PALETA ──
     const verde: [number, number, number] = [0, 105, 56];
     const verdeEscuro: [number, number, number] = [0, 77, 41];
     const verdeLinha: [number, number, number] = [0, 180, 100];
@@ -156,7 +168,6 @@ const Inventory = () => {
     const cinzaClaro: [number, number, number] = [245, 247, 250];
     const cinzaBorda: [number, number, number] = [220, 220, 220];
 
-    // ── BANNER HEADER VERDE ──
     doc.setFillColor(verde[0], verde[1], verde[2]);
     doc.rect(0, 0, PW, 38, "F");
 
@@ -166,7 +177,6 @@ const Inventory = () => {
     doc.setFillColor(verdeLinha[0], verdeLinha[1], verdeLinha[2]);
     doc.rect(0, 38, PW, 1.2, "F");
 
-    // ── LOGO H ──
     const carregarImagem = (url: string): Promise<string> =>
       new Promise((resolve, reject) => {
         const img = new window.Image();
@@ -196,19 +206,16 @@ const Inventory = () => {
       doc.text("H", 22, 20.5, { align: "center" });
     }
 
-    // ── NOME "HOPPER" ──
     doc.setTextColor(branco[0], branco[1], branco[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.text("Hopper", 36, 17);
 
-    // ── SUBTÍTULO ──
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(200, 230, 210);
     doc.text("Sistema de Controle de Estoque e Validades", 36, 23);
 
-    // ── BLOCO DE META-INFORMAÇÕES ──
     doc.setFillColor(cinzaClaro[0], cinzaClaro[1], cinzaClaro[2]);
     doc.rect(0, 39.2, PW, 22, "F");
 
@@ -234,21 +241,35 @@ const Inventory = () => {
     doc.setLineWidth(0.3);
     doc.line(14, 61.2, PW - 14, 61.2);
 
-    // ── TABELA ──
     const colunasTabela = [
       "Código",
       "Nome do Produto",
+      "Observação",
       "Peso/Vol.",
       "Estoque",
-      "Validade",
+      "Lotes",
     ];
-    const linhasTabela = products.map((p) => [
-      p.sku || "—",
-      p.name.toUpperCase(),
-      formatarPesoMetrico(p.weight, p.unit),
-      `${p.stockQuantity} un`,
-      formatarDataPDF(p.expirationDate ?? ""),
-    ]);
+    const linhasTabela = products.map((p) => {
+      const qtdTotal = (p.lotes || []).reduce(
+        (acc: number, l: any) => acc + (l.stockQuantity || 0),
+        0,
+      );
+      const lotesResumo = (p.lotes || [])
+        .map(
+          (l: any) =>
+            `${formatarData(l.expirationDate)} (${l.stockQuantity} un)`,
+        )
+        .join("\n");
+
+      return [
+        p.sku || "—",
+        p.name.toUpperCase(),
+        p.note || "—",
+        formatarPesoMetrico(p.weight, p.unit),
+        `${qtdTotal} un`,
+        lotesResumo || "Nenhum lote",
+      ];
+    });
 
     autoTable(doc, {
       head: [colunasTabela],
@@ -257,13 +278,13 @@ const Inventory = () => {
       theme: "striped",
       styles: {
         font: "helvetica",
-        fontSize: 8.5,
+        fontSize: 8,
         cellPadding: { top: 4, bottom: 4, left: 4, right: 4 },
       },
       headStyles: {
         fillColor: verde,
         textColor: branco,
-        fontSize: 9,
+        fontSize: 8.5,
         fontStyle: "bold",
         halign: "left",
       },
@@ -274,24 +295,8 @@ const Inventory = () => {
       alternateRowStyles: {
         fillColor: cinzaClaro,
       },
-      didDrawCell: (data) => {
-        if (
-          data.section === "body" &&
-          data.column.index === colunasTabela.length - 1
-        ) {
-          doc.setDrawColor(cinzaBorda[0], cinzaBorda[1], cinzaBorda[2]);
-          doc.setLineWidth(0.2);
-          doc.line(
-            14,
-            data.cell.y + data.cell.height,
-            PW - 14,
-            data.cell.y + data.cell.height,
-          );
-        }
-      },
       margin: { top: 65, right: 14, bottom: 22, left: 14 },
       didDrawPage: (data) => {
-        // ── RODAPÉ ──
         doc.setFillColor(verde[0], verde[1], verde[2]);
         doc.rect(0, PH - 14, PW, 14, "F");
 
@@ -322,12 +327,12 @@ const Inventory = () => {
   const columns: GridColDef[] = [
     {
       field: "sku",
-      headerName: "Código de Barras",
-      width: 150,
+      headerName: "Código",
+      width: 130,
       renderCell: (params) => (
-        <div className="flex items-center h-full gap-2 font-mono text-blue-600 dark:text-blue-400 font-bold">
-          <BarcodeIcon className="w-4 h-4" />
-          {params.value || "S/ SKU"}
+        <div className="flex items-center h-full gap-1.5 font-mono text-blue-600 dark:text-blue-400 font-bold text-xs">
+          <BarcodeIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">{params.value || "S/ SKU"}</span>
         </div>
       ),
     },
@@ -336,69 +341,109 @@ const Inventory = () => {
       headerName: "Nome do Produto",
       width: 220,
       renderCell: (params) => (
-        <span className="font-semibold uppercase text-gray-800 dark:text-gray-100 tracking-tight flex items-center h-full">
+        <span className="font-semibold uppercase text-gray-800 dark:text-gray-100 tracking-tight flex items-center h-full text-xs truncate">
           {params.value}
         </span>
       ),
     },
     {
-      field: "weight",
-      headerName: "Peso / Vol.",
-      width: 120,
-      renderCell: (params) => (
-        <div className="flex items-center h-full gap-1.5 text-gray-600 dark:text-gray-200 font-medium">
-          <ScaleIcon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-          {formatarPesoMetrico(params.value, params.row.unit)}
-        </div>
-      ),
-    },
-    {
-      field: "expirationDate",
-      headerName: "Vencimento",
-      width: 140,
+      field: "note",
+      headerName: "Observação",
+      width: 150,
       renderCell: (params) => {
-        if (!params.value)
-          return <span className="flex items-center h-full">---</span>;
-        const stringDataPura = params.value.substring(0, 10);
-        const [ano, mes, dia] = stringDataPura.split("-");
+        const observacao = params.value;
+        if (!observacao) {
+          return (
+            <span className="text-gray-400 dark:text-gray-500 italic text-xs">
+              —
+            </span>
+          );
+        }
         return (
-          <div className="flex items-center h-full gap-2 text-gray-600 dark:text-gray-200">
-            <CalendarDaysIcon className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-            <span>{`${dia}/${mes}/${ano}`}</span>
+          <div className="flex items-center justify-between w-full h-full pr-1">
+            <span className="text-xs text-gray-600 dark:text-gray-300 truncate max-br-[90px]">
+              {observacao}
+            </span>
+            <button
+              onClick={() => setProductForNoteModal(params.row)}
+              className="p-1.5 bg-slate-100 text-slate-600 dark:bg-gray-700/60 dark:text-gray-300 rounded-lg hover:bg-slate-200 dark:hover:bg-gray-700 transition-colors cursor-pointer shrink-0"
+              title="Ler observação completa"
+            >
+              <FileTextIcon className="w-3.5 h-3.5" />
+            </button>
           </div>
         );
       },
     },
     {
-      field: "note",
-      headerName: "Observação",
-      width: 200,
+      field: "weight",
+      headerName: "Peso / Vol.",
+      width: 110,
       renderCell: (params) => (
-        <span
-          className="text-gray-400 dark:text-gray-400 italic truncate flex items-center h-full w-full"
-          title={params.value}
-        >
-          {params.value || "---"}
-        </span>
+        <div className="flex items-center h-full gap-1.5 text-gray-600 dark:text-gray-200 font-medium text-xs">
+          <ScaleIcon className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
+          {formatarPesoMetrico(params.value, params.row.unit)}
+        </div>
       ),
     },
     {
-      field: "stockQuantity",
-      headerName: "Estoque",
-      width: 130,
-      type: "number",
+      field: "lotes",
+      headerName: "Lotes e Validades",
+      width: 170,
+      sortable: false,
       renderCell: (params) => {
-        const isLowStock = params.value < 15;
+        const lotes = params.value || [];
+        const qtdLotes = lotes.length;
+
+        if (qtdLotes === 0) {
+          return (
+            <span className="text-gray-400 dark:text-gray-500 italic text-xs flex items-center h-full">
+              Sem lotes
+            </span>
+          );
+        }
+
+        return (
+          <div className="flex items-center justify-between w-full h-full pr-2">
+            <span className="text-xs font-bold text-gray-700 dark:text-gray-200 bg-slate-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-md">
+              {qtdLotes} {qtdLotes === 1 ? "lote" : "lotes"}
+            </span>
+            <button
+              onClick={() => setProductForLotsModal(params.row)}
+              className="p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors cursor-pointer flex items-center gap-1 font-semibold text-xs"
+              title="Visualizar detalhes dos lotes"
+            >
+              <EyeIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      },
+    },
+    {
+      field: "stockQuantity",
+      headerName: "Estoque Total",
+      width: 120,
+      type: "number",
+      valueGetter: (params, row) => {
+        const lotes = row.lotes || [];
+        return lotes.reduce(
+          (acc: number, l: any) => acc + (l.stockQuantity || 0),
+          0,
+        );
+      },
+      renderCell: (params) => {
+        const qtdTotal = params.value;
+        const isLowStock = qtdTotal < 15;
         return (
           <div
-            className={`flex items-center justify-end md:justify-start h-full gap-2 font-bold ${isLowStock ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
+            className={`flex items-center h-full gap-1.5 font-bold text-xs ${isLowStock ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}
           >
             {isLowStock ? (
-              <AlertTriangleIcon className="w-4 h-4" />
+              <AlertTriangleIcon className="w-4 h-4 shrink-0" />
             ) : (
-              <CheckCircle2Icon className="w-4 h-4" />
+              <CheckCircle2Icon className="w-4 h-4 shrink-0" />
             )}
-            {params.value} un
+            {qtdTotal} un
           </div>
         );
       },
@@ -406,21 +451,22 @@ const Inventory = () => {
     {
       field: "actions",
       headerName: "Ações",
-      width: 120,
+      width: 100,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
         <div className="flex items-center h-full gap-2">
           <button
             onClick={() => setProductToEdit(params.row)}
-            className="p-1.5 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+            className="p-1.5 bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
             title="Editar Produto"
           >
             <EditIcon className="w-4 h-4" />
           </button>
           <button
             onClick={() => setProductToDelete(params.row.productId)}
-            className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+            className="p-1.5 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+            title="Excluir Produto"
           >
             <Trash2Icon className="w-4 h-4" />
           </button>
@@ -463,7 +509,7 @@ const Inventory = () => {
             onClick={handleExportCSV}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-gray-600 text-white hover:bg-gray-700 rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
           >
-            <DownloadIcon className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" />
+            <DownloadIcon className="w-4 h-4 text-emerald-400" />
             Exportar (CSV)
           </button>
 
@@ -471,14 +517,13 @@ const Inventory = () => {
             onClick={handleExportPDF}
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
           >
-            <PrinterIcon className="w-4 h-4 mr-2" />
+            <PrinterIcon className="w-4 h-4" />
             Imprimir (PDF)
           </button>
         </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-xl border border-gray-100 dark:border-gray-700/60 overflow-hidden transition-all">
-        {/* BARRA DE BUSCA DE PRODUTOS */}
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-gray-900/10">
           <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -496,7 +541,6 @@ const Inventory = () => {
           </span>
         </div>
 
-        {/* CONTAINER COM ALTURA FIXA E SCROLL INTERNO */}
         <div className="w-full h-[520px] overflow-hidden">
           <DataGrid
             rows={filteredProducts}
@@ -528,13 +572,6 @@ const Inventory = () => {
                 backgroundColor: "#1f2937 !important",
                 borderBottom: "1px solid #314151 !important",
               },
-              "& .MuiDataGrid-columnHeader--scrollbarFiller, & .MuiDataGrid-filler, & .MuiDataGrid-scrollbarFiller":
-                { backgroundColor: "#f9fafb !important" },
-              ".dark & .MuiDataGrid-columnHeader--scrollbarFiller, .dark & .MuiDataGrid-filler, .dark & .MuiDataGrid-scrollbarFiller":
-                {
-                  backgroundColor: "#1f2937 !important",
-                  borderBottom: "1px solid #314151 !important",
-                },
               "& .MuiDataGrid-iconButtonContainer, & .MuiDataGrid-menuIcon": {
                 visibility: "visible !important",
                 width: "auto !important",
@@ -571,6 +608,146 @@ const Inventory = () => {
         </div>
       </div>
 
+      {/* MODAL PARA VISUALIZAR OBSERVAÇÃO COMPLETA */}
+      {productForNoteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setProductForNoteModal(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <FileTextIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-gray-100">
+                  Observação do Produto
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProductForNoteModal(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider block">
+                  Produto
+                </span>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-tight mt-0.5">
+                  {productForNoteModal.name}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-gray-800 border border-slate-100 dark:border-gray-700/60 max-h-48 overflow-y-auto">
+                <p className="text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                  {productForNoteModal.note}
+                </p>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setProductForNoteModal(null)}
+                  className="w-full py-2.5 text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA VISUALIZAR LOTES */}
+      {productForLotsModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+          onClick={() => setProductForLotsModal(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <PackageIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 dark:text-gray-100">
+                  Lotes do Produto
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProductForLotsModal(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider block">
+                  Produto
+                </span>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-tight mt-0.5">
+                  {productForLotsModal.name}
+                </p>
+                <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold mt-1 inline-block">
+                  SKU: {productForLotsModal.sku || "S/ SKU"}
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider block mb-1">
+                  Lotes Cadastrados ({productForLotsModal.lotes?.length || 0}):
+                </span>
+                {productForLotsModal.lotes?.map((lote: any) => (
+                  <div
+                    key={lote.loteId}
+                    className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-gray-800 border border-slate-100 dark:border-gray-700/60"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+                        <CalendarDaysIcon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-700 dark:text-gray-200 block">
+                          Validade: {formatarData(lote.expirationDate)}
+                        </span>
+                        {lote.lotNumber && (
+                          <span className="text-[10px] font-mono text-gray-400">
+                            Lote: {lote.lotNumber}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg">
+                      {lote.stockQuantity} un
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setProductForLotsModal(null)}
+                  className="w-full py-2.5 text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AlertDialog
         open={!!productToDelete}
         onOpenChange={() => setProductToDelete(null)}
@@ -596,12 +773,12 @@ const Inventory = () => {
               imediatamente nos relatórios de estoque e painéis gerenciais.
             </p>
             <AlertDialogFooter className="flex gap-3 justify-center">
-              <AlertDialogCancel className="flex-1 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl py-4 text-xs font-semibold transition-colors">
+              <AlertDialogCancel className="flex-1 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl py-4 text-xs font-semibold transition-colors cursor-pointer">
                 Cancelar
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                className="flex-1 bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500 text-white font-bold rounded-xl py-4 text-xs shadow-md transition-all active:scale-95"
+                className="flex-1 bg-rose-600 hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-500 text-white font-bold rounded-xl py-4 text-xs shadow-md transition-all active:scale-95 cursor-pointer"
               >
                 Excluir Produto
               </AlertDialogAction>

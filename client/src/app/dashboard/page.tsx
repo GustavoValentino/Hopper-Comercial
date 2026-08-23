@@ -14,6 +14,7 @@ import {
   ImageOff,
   ChevronDownIcon,
   Check,
+  Barcode,
 } from "lucide-react";
 import CardEstoqueCritico from "./CardEstoqueCritico";
 import CardAlertaVencimento from "./CardAlertaVencimento";
@@ -141,7 +142,6 @@ const Dashboard = () => {
     setIsDateLoading(false);
   }, []);
 
-  // Fecha o dropdown customizado ao clicar fora dele
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -160,39 +160,93 @@ const Dashboard = () => {
     return ["TODAS", ...Array.from(new Set(cats))];
   }, [produtos]);
 
-  const obterProdutosFiltrados = () => {
+  const obterLotesFiltrados = useMemo(() => {
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
 
-    return produtos.filter((produto) => {
-      let diferencaDias: number | null = null;
-      if (produto.expirationDate) {
-        const stringDataPura = produto.expirationDate.substring(0, 10);
-        const dataValidade = new Date(`${stringDataPura}T00:00:00`);
-        const diferencaTempo = dataValidade.getTime() - hoje.getTime();
-        diferencaDias = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
-      }
+    const itensProcessados: any[] = [];
 
-      let atendeStatus = true;
-      if (filtroExportacao === "vencidos") {
-        atendeStatus = diferencaDias !== null && diferencaDias < 0;
-      } else if (filtroExportacao === "criticos") {
-        atendeStatus = produto.stockQuantity <= LIMITE_CRITICO;
-      } else if (filtroExportacao === "proximos") {
-        atendeStatus =
-          diferencaDias !== null && diferencaDias >= 0 && diferencaDias <= 15;
-      }
-
+    produtos.forEach((produto) => {
       const atendeCategoria =
         filtroCategoriaExportacao === "TODAS" ||
         produto.category === filtroCategoriaExportacao;
 
-      return atendeStatus && atendeCategoria;
-    });
-  };
+      if (!atendeCategoria) return;
 
-  const dadosFiltrados = obterProdutosFiltrados();
-  const produtosParaVisualizar = dadosFiltrados.slice(0, 5);
+      const lotes =
+        produto.lotes && Array.isArray(produto.lotes) ? produto.lotes : [];
+
+      if (lotes.length === 0) {
+        let diferencaDias: number | null = null;
+        if (produto.expirationDate) {
+          const stringDataPura = produto.expirationDate.substring(0, 10);
+          const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+          diferencaDias = Math.ceil(
+            (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+          );
+        }
+
+        let atendeStatus = true;
+        if (filtroExportacao === "vencidos") {
+          atendeStatus = diferencaDias !== null && diferencaDias < 0;
+        } else if (filtroExportacao === "criticos") {
+          atendeStatus = (produto.stockQuantity ?? 0) <= LIMITE_CRITICO;
+        } else if (filtroExportacao === "proximos") {
+          atendeStatus =
+            diferencaDias !== null && diferencaDias >= 0 && diferencaDias <= 15;
+        }
+
+        if (atendeStatus) {
+          itensProcessados.push({
+            ...produto,
+            loteAtualId: "sem-lote",
+            lotNumber: "Sem Lote",
+            stockQuantity: produto.stockQuantity ?? 0,
+            expirationDate: produto.expirationDate,
+            diferencaDias,
+          });
+        }
+      } else {
+        lotes.forEach((lote) => {
+          let diferencaDias: number | null = null;
+          if (lote.expirationDate) {
+            const stringDataPura = lote.expirationDate.substring(0, 10);
+            const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+            diferencaDias = Math.ceil(
+              (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+            );
+          }
+
+          let atendeStatus = true;
+          if (filtroExportacao === "vencidos") {
+            atendeStatus = diferencaDias !== null && diferencaDias < 0;
+          } else if (filtroExportacao === "criticos") {
+            atendeStatus = (lote.stockQuantity ?? 0) <= LIMITE_CRITICO;
+          } else if (filtroExportacao === "proximos") {
+            atendeStatus =
+              diferencaDias !== null &&
+              diferencaDias >= 0 &&
+              diferencaDias <= 15;
+          }
+
+          if (atendeStatus) {
+            itensProcessados.push({
+              ...produto,
+              loteAtualId: lote.loteId || lote.lotNumber,
+              lotNumber: lote.lotNumber || "Lote Principal",
+              stockQuantity: lote.stockQuantity ?? 0,
+              expirationDate: lote.expirationDate,
+              diferencaDias,
+            });
+          }
+        });
+      }
+    });
+
+    return itensProcessados;
+  }, [produtos, filtroExportacao, filtroCategoriaExportacao]);
+
+  const produtosParaVisualizar = obterLotesFiltrados.slice(0, 5);
   const userName = user?.name || user?.email?.split("@")[0] || "Operador";
 
   const produtosParaRebaixa = useMemo(() => {
@@ -201,23 +255,44 @@ const Dashboard = () => {
 
     return produtos
       .map((produto) => {
-        if (!produto.expirationDate) return null;
-        const stringDataPura = produto.expirationDate.substring(0, 10);
-        const dataValidade = new Date(`${stringDataPura}T00:00:00`);
-        const dias = Math.ceil(
-          (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
-        );
-        return { produto, dias };
+        if (!produto.lotes || produto.lotes.length === 0) return null;
+
+        const lotesComDias = produto.lotes
+          .map((lote) => {
+            if (!lote.expirationDate) return null;
+            const stringDataPura = lote.expirationDate.substring(0, 10);
+            const dataValidade = new Date(`${stringDataPura}T00:00:00`);
+            const dias = Math.ceil(
+              (dataValidade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+            );
+            return { lote, dias };
+          })
+          .filter(
+            (
+              item,
+            ): item is { lote: (typeof produto.lotes)[number]; dias: number } =>
+              item !== null,
+          );
+
+        const lotesCriticos = lotesComDias.filter((item) => item.dias <= 15);
+
+        if (lotesCriticos.length === 0) return null;
+
+        lotesCriticos.sort((a, b) => a.dias - b.dias);
+        const maisUrgente = lotesCriticos[0];
+
+        return {
+          produto,
+          loteAtivo: maisUrgente.lote,
+          dias: maisUrgente.dias,
+        };
       })
-      .filter(
-        (item): item is { produto: (typeof produtos)[number]; dias: number } =>
-          item !== null && item.dias <= 15,
-      )
+      .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => a.dias - b.dias);
   }, [produtos]);
 
   const handleConfirmarExportacao = async () => {
-    if (dadosFiltrados.length === 0) {
+    if (obterLotesFiltrados.length === 0) {
       alert(
         "Não há registros correspondentes aos filtros selecionados para exportação.",
       );
@@ -276,7 +351,7 @@ const Dashboard = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...cores.cinzaEscuro);
-    doc.text("Relatório Analítico de Inventário", 14, 47);
+    doc.text("Relatório Analítico de Produtos", 14, 47);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
@@ -298,15 +373,13 @@ const Dashboard = () => {
 
     const imagensBase64: Record<string, string | null> = {};
     await Promise.all(
-      dadosFiltrados.map(async (p) => {
-        if (p.imageUrl) {
+      obterLotesFiltrados.map(async (p) => {
+        if (p.imageUrl && !imagensBase64[p.productId]) {
           try {
             imagensBase64[p.productId] = await carregarImagemBase64(p.imageUrl);
           } catch {
             imagensBase64[p.productId] = null;
           }
-        } else {
-          imagensBase64[p.productId] = null;
         }
       }),
     );
@@ -314,19 +387,22 @@ const Dashboard = () => {
     const colunasTabela = [
       "Foto",
       "Produto",
-      "Categoria",
       "Código",
+      "Lote",
+      "Categoria",
       "Quantidade",
       "Validade",
     ];
-    const linhasTabela = dadosFiltrados.map((p) => {
+
+    const linhasTabela = obterLotesFiltrados.map((p) => {
       const pesoFormatado = formatarPesoMetrico(p.weight, p.unit);
       return [
         "",
         `${p.name} (${pesoFormatado})`,
+        p.barcode || p.sku || "—",
+        p.lotNumber || "—",
         p.category || "—",
-        p.sku || "—",
-        `${p.stockQuantity} un`,
+        `${p.stockQuantity ?? 0} un`,
         formatarDataTabela(p.expirationDate ?? ""),
       ];
     });
@@ -339,26 +415,27 @@ const Dashboard = () => {
       headStyles: {
         fillColor: cores.verde,
         textColor: cores.branco,
-        fontSize: 9,
+        fontSize: 8.5,
         fontStyle: "bold",
         halign: "left",
         cellPadding: 4,
       },
       bodyStyles: {
-        fontSize: 8.5,
+        fontSize: 8,
         textColor: cores.cinzaEscuro,
         cellPadding: 3.5,
         minCellHeight: 14,
       },
       columnStyles: {
-        0: { cellWidth: 20, halign: "center" },
+        0: { cellWidth: 16, halign: "center" },
+        2: { cellWidth: 28, halign: "center", font: "courier" },
       },
       alternateRowStyles: { fillColor: cores.cinzaClaro },
       margin: { top: 68, right: 14, bottom: 22, left: 14 },
       didDrawCell: (data) => {
         if (data.section === "body" && data.column.index === 0) {
-          const produto = dadosFiltrados[data.row.index];
-          const imgBase64 = produto ? imagensBase64[produto.productId] : null;
+          const item = obterLotesFiltrados[data.row.index];
+          const imgBase64 = item ? imagensBase64[item.productId] : null;
 
           if (imgBase64) {
             const tamanho = 10;
@@ -395,7 +472,7 @@ const Dashboard = () => {
 
     const dataSlug = new Date().toISOString().slice(0, 10);
     doc.save(
-      `hopper_relatorio_${filtroExportacao}_${filtroCategoriaExportacao.toLowerCase()}_${dataSlug}.pdf`,
+      `hopper_relatorio_lotes_${filtroExportacao}_${filtroCategoriaExportacao.toLowerCase()}_${dataSlug}.pdf`,
     );
     setIsModalAberto(false);
   };
@@ -468,7 +545,7 @@ const Dashboard = () => {
                               {!semImagem ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
-                                  src={produto.imageUrl}
+                                  src={produto.imageUrl!}
                                   alt={produto.name}
                                   className="w-full h-full object-cover"
                                   onError={() =>
@@ -541,23 +618,23 @@ const Dashboard = () => {
                 </button>
               </DialogTrigger>
 
-              <DialogContent className="sm:max-w-[640px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-6 shadow-2xl rounded-xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
+              <DialogContent className="w-[95vw] sm:max-w-[780px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 sm:p-6 shadow-2xl rounded-2xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
                 <DialogHeader>
-                  <DialogTitle className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                    Configurar Exportação de Dados
+                  <DialogTitle className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">
+                    Configurar Exportação de Dados por Lotes
                   </DialogTitle>
                   <DialogDescription className="text-xs text-gray-400 dark:text-gray-500">
-                    Filtre os registros por status de criticidade e selecione um
-                    corredor/categoria específico para refinar o relatório em
-                    PDF.
+                    Filtre os lotes por status de criticidade e corredor para
+                    refinar o relatório em PDF com códigos de barra, quantidades
+                    e validades detalhadas.
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="my-4 space-y-4">
+                <div className="my-3 sm:my-4 space-y-4">
                   {/* Filtro por Status */}
                   <div>
                     <span
-                      className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
+                      className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
                       id="filtro-label"
                     >
                       1. Status / Criticidade:
@@ -589,10 +666,10 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {/* Filtro por Categoria / Corredor Customizado (Shadcn Style) */}
+                  {/* Filtro por Categoria */}
                   <div className="relative" ref={categoryDropdownRef}>
                     <span
-                      className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
+                      className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2"
                       id="categoria-label"
                     >
                       2. Categoria / Departamento:
@@ -622,7 +699,6 @@ const Dashboard = () => {
                       />
                     </button>
 
-                    {/* Painel Flutuante Animado */}
                     {isCategoryDropdownOpen && (
                       <div className="absolute left-0 right-0 mt-1.5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
                         <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider border-b border-gray-100 dark:border-gray-700/60">
@@ -663,79 +739,111 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="border border-gray-100 dark:border-gray-800 rounded-lg overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
+                {/* Bloco de Prévia Estruturado e Sofisticado */}
+                <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
                   <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Prévia dos Dados Filtrados
+                      Prévia dos Lotes Filtrados
                     </span>
                     <span
                       className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
                       aria-live="polite"
                     >
-                      {dadosFiltrados.length}{" "}
-                      {dadosFiltrados.length === 1
-                        ? "item encontrado"
-                        : "itens encontrados"}
+                      {obterLotesFiltrados.length}{" "}
+                      {obterLotesFiltrados.length === 1
+                        ? "lote encontrado"
+                        : "lotes encontrados"}
                     </span>
                   </div>
 
-                  <div className="p-2 overflow-x-auto max-h-40 overflow-y-auto">
-                    <table className="w-full text-left border-collapse">
+                  <div className="overflow-x-auto max-h-[220px] custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[620px]">
                       <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
-                          <th className="p-2">Produto</th>
-                          <th className="p-2">Categoria</th>
-                          <th className="p-2">Qtd</th>
-                          <th className="p-2">Validade</th>
+                        <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/80 dark:bg-gray-900/40">
+                          <th className="py-2.5 px-3 w-[35%]">Produto</th>
+                          <th className="py-2.5 px-3 w-[22%]">Cód. Barras</th>
+                          <th className="py-2.5 px-3 w-[15%]">Lote</th>
+                          <th className="py-2.5 px-3 w-[13%]">Qtd</th>
+                          <th className="py-2.5 px-3 w-[15%]">Validade</th>
                         </tr>
                       </thead>
-                      <tbody className="text-xs text-gray-700 dark:text-gray-300">
+                      <tbody className="text-xs text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-800/50">
                         {produtosParaVisualizar.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={4}
-                              className="p-4 text-center text-gray-400 dark:text-gray-500 italic"
+                              colSpan={5}
+                              className="py-6 text-center text-gray-400 dark:text-gray-500 italic text-xs"
                             >
-                              Nenhum produto corresponde aos filtros
-                              selecionados.
+                              Nenhum lote corresponde aos filtros selecionados.
                             </td>
                           </tr>
                         ) : (
-                          produtosParaVisualizar.map((p) => (
+                          produtosParaVisualizar.map((p, index) => (
                             <tr
-                              key={p.productId}
-                              className="border-b border-gray-50 dark:border-gray-800/40 last:border-none hover:bg-gray-50/40 dark:hover:bg-gray-800/10 transition-colors"
+                              key={`${p.productId}-${p.loteAtualId || index}`}
+                              className="hover:bg-gray-100/60 dark:hover:bg-gray-800/30 transition-colors"
                             >
-                              <td className="p-2 flex items-center gap-2.5 max-w-[180px]">
-                                <div className="relative w-7 h-7 rounded-md overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 shadow-xs shrink-0 flex items-center justify-center">
-                                  {p.imageUrl ? (
-                                    <img
-                                      src={p.imageUrl}
-                                      alt={`Foto de ${p.name}`}
-                                      className="w-full h-full object-cover"
-                                      loading="lazy"
-                                    />
-                                  ) : (
-                                    <PackageIcon className="w-3 h-3 text-gray-300 dark:text-gray-600" />
-                                  )}
+                              {/* Coluna Produto */}
+                              <td className="py-2.5 px-3">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xs shrink-0 flex items-center justify-center">
+                                    {p.imageUrl ? (
+                                      <img
+                                        src={p.imageUrl}
+                                        alt={`Foto de ${p.name}`}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                      />
+                                    ) : (
+                                      <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p
+                                      className="font-bold text-gray-800 dark:text-gray-200 truncate text-xs leading-snug"
+                                      title={p.name}
+                                    >
+                                      {p.name}
+                                    </p>
+                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                                      {formatarPesoMetrico(p.weight, p.unit)}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="truncate">
-                                  <p
-                                    className="font-semibold text-gray-800 dark:text-gray-200 truncate"
-                                    title={p.name}
-                                  >
-                                    {p.name}
-                                  </p>
+                              </td>
+
+                              {/* Coluna Código de Barras */}
+                              <td className="py-2.5 px-3">
+                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 max-w-full">
+                                  <Barcode className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                  <span className="font-mono text-[11px] font-medium text-gray-600 dark:text-gray-300 truncate">
+                                    {p.barcode || p.sku || "—"}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="p-2 text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                                {p.category || "—"}
+
+                              {/* Coluna Lote */}
+                              <td className="py-2.5 px-3">
+                                <span className="font-mono text-[11px] font-semibold text-gray-600 dark:text-gray-300 bg-gray-100/50 dark:bg-gray-800/40 px-2 py-0.5 rounded">
+                                  {p.lotNumber || "—"}
+                                </span>
                               </td>
-                              <td className="p-2 font-bold">
-                                {p.stockQuantity} un
+
+                              {/* Coluna Quantidade */}
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-gray-800 dark:text-gray-200 text-xs">
+                                  {p.stockQuantity}{" "}
+                                  <span className="text-[10px] font-normal text-gray-400">
+                                    un
+                                  </span>
+                                </span>
                               </td>
-                              <td className="p-2 text-gray-500 dark:text-gray-400">
-                                {formatarDataTabela(p.expirationDate ?? "")}
+
+                              {/* Coluna Validade */}
+                              <td className="py-2.5 px-3">
+                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                  {formatarDataTabela(p.expirationDate || "")}
+                                </span>
                               </td>
                             </tr>
                           ))
@@ -745,20 +853,22 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <div className="mt-4 flex items-center justify-end gap-3 pt-2">
                   <button
+                    type="button"
                     onClick={() => setIsModalAberto(false)}
-                    className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                    className="px-4 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={handleConfirmarExportacao}
-                    disabled={dadosFiltrados.length === 0}
-                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#006938] focus-visible:ring-offset-2"
+                    disabled={obterLotesFiltrados.length === 0}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] hover:bg-[#00522c] text-white rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                    Baixar PDF
+                    Baixar Relatório em PDF ({obterLotesFiltrados.length})
                   </button>
                 </div>
               </DialogContent>

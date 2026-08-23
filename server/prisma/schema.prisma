@@ -29,7 +29,6 @@ model User {
   resetPasswordToken       String?   @unique
   resetPasswordExpires     DateTime?
 
-  // Campos do WhatsApp
   whatsappNumber        String?
   whatsappOptIn         Boolean   @default(false)
   whatsappOtpCode       String?
@@ -84,25 +83,34 @@ model Verification {
 }
 
 model Product {
-  productId      String        @id @default(uuid())
-  sku            String        @unique
-  name           String
-  description    String?
-  weight         Float?
-  unit           ProductUnit   @default(KG)
+  productId     String      @id @default(uuid())
+  sku           String      @unique
+  name          String
+  description   String?
+  weight        Float?
+  unit          ProductUnit @default(KG)
+  minStock      Int         @default(5)
+  category      String
+  rating        Float?
+  updatedAt     DateTime    @updatedAt
+  section       String
+  note          String?
+  imageUrl      String?
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lotes         Lote[]
+  Notifications Notification[]
+}
+
+model Lote {
+  loteId         String   @id @default(uuid())
+  expirationDate DateTime @db.Timestamptz
   stockQuantity  Int
-  minStock       Int           @default(5)
-  category       String
-  rating         Float?
-  updatedAt      DateTime      @updatedAt
-  expirationDate DateTime      @db.Timestamptz
   lotNumber      String?
-  section        String
-  note           String?
-  imageUrl       String?
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Notifications  Notification[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  productId      String
+  product        Product  @relation(fields: [productId], references: [productId], onDelete: Cascade)
 }
 
 model AuditLogs {

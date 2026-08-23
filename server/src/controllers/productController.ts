@@ -1,18 +1,16 @@
 import { Request, Response } from "express";
 import { PrismaClient, ProductUnit } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
-import { v2 as cloudinary } from "cloudinary";
-import crypto from "crypto";
-import { calcularDiasRestantes } from "../lib/dateUtils.js";
-import { notificarWhatsappSeAtivo } from "../lib/whatsappNotify.js";
 
 const prisma = new PrismaClient();
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const calcularDiasRestantes = (expirationDate: Date): number => {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const venc = new Date(expirationDate);
+  venc.setHours(0, 0, 0, 0);
+  return Math.ceil((venc.getTime() - hoje.getTime()) / 86400000);
+};
 
 const gerarMensagemAlerta = (
   nome: string,
@@ -32,6 +30,34 @@ const gerarMensagemAlerta = (
     message: `[AVISO PRÉVIO] O lote de '${nome}' no setor ${setor} vencerá em ${dias} dias. Planeje a exposição ou promoções.`,
     type: "SYSTEM",
   };
+};
+
+const processarAlertasLotes = async (
+  userId: string,
+  productId: string,
+  nome: string,
+  setor: string,
+  lotes: { expirationDate: Date }[],
+) => {
+  // Remove notificações antigas do produto
+  await prisma.notification.deleteMany({ where: { productId, userId } });
+
+  // Cria nova notificação para o lote mais crítico
+  const lotesCriticos = lotes
+    .map((l) => ({ ...l, dias: calcularDiasRestantes(l.expirationDate) }))
+    .filter((l) => l.dias <= 15)
+    .sort((a, b) => a.dias - b.dias);
+
+  if (lotesCriticos.length > 0) {
+    const { message, type } = gerarMensagemAlerta(
+      nome,
+      setor,
+      lotesCriticos[0].dias,
+    );
+    await prisma.notification.create({
+      data: { userId, productId, type, message },
+    });
+  }
 };
 
 export const getProducts = async (
@@ -55,10 +81,28 @@ export const getProducts = async (
             ]
           : undefined,
       },
+      include: {
+        lotes: {
+          orderBy: { expirationDate: "asc" },
+        },
+      },
       orderBy: { updatedAt: "desc" },
     });
 
-    res.json(products);
+    // Serializa para o frontend — mantém compatibilidade com campos antigos
+    const produtosSerialized = products.map((p) => {
+      const lotesMaisUrgente = p.lotes[0];
+      return {
+        ...p,
+        // Campos de compatibilidade (pega do lote mais urgente)
+        expirationDate: lotesMaisUrgente?.expirationDate ?? null,
+        stockQuantity: p.lotes.reduce((acc, l) => acc + l.stockQuantity, 0),
+        lotNumber: lotesMaisUrgente?.lotNumber ?? null,
+        lotes: p.lotes,
+      };
+    });
+
+    res.json(produtosSerialized);
   } catch (error: any) {
     res.status(500).json({ message: "Erro ao buscar produtos do inventário." });
   }
@@ -82,84 +126,82 @@ export const createProduct = async (
     const {
       sku,
       name,
-      stockQuantity,
       category,
       weight,
       unit,
-      expirationDate,
       section,
       note,
-      imageBase64,
+      lotes: lotesRaw,
     } = authReq.body;
 
-    if (!expirationDate) {
-      res.status(400).json({ message: "A data de validade é obrigatória." });
-      return;
-    }
     if (!section) {
       res.status(400).json({ message: "O setor da gôndola é obrigatório." });
       return;
     }
 
-    const productId = crypto.randomUUID();
-    let imageUrl: string | null = null;
+    if (!lotesRaw || !Array.isArray(lotesRaw) || lotesRaw.length === 0) {
+      res
+        .status(400)
+        .json({
+          message:
+            "Informe ao menos um lote com data de validade e quantidade.",
+        });
+      return;
+    }
 
-    if (
-      typeof imageBase64 === "string" &&
-      imageBase64.startsWith("data:image")
-    ) {
-      const upload = await cloudinary.uploader.upload(imageBase64, {
-        folder: "products",
-        public_id: `product-${productId}`,
-        overwrite: true,
-        invalidate: true,
-      });
-      imageUrl = upload.secure_url;
+    for (const lote of lotesRaw) {
+      if (!lote.expirationDate) {
+        res
+          .status(400)
+          .json({
+            message: "Todos os lotes precisam ter uma data de validade.",
+          });
+        return;
+      }
+      if (!lote.stockQuantity || parseInt(lote.stockQuantity, 10) < 0) {
+        res
+          .status(400)
+          .json({
+            message: "Todos os lotes precisam ter uma quantidade válida.",
+          });
+        return;
+      }
     }
 
     const product = await prisma.product.create({
       data: {
-        productId,
         sku: sku?.toString().trim(),
         name: name?.toString().trim(),
-        stockQuantity: parseInt(stockQuantity, 10) || 0,
         category: category?.toString().trim(),
         weight: weight ? parseFloat(weight) : null,
         unit: unit ? (unit as ProductUnit) : undefined,
         note: note ? note.toString().trim() : null,
-        expirationDate: new Date(expirationDate),
         section: section.toString().trim(),
-        imageUrl,
         userId,
+        lotes: {
+          create: lotesRaw.map((l: any) => ({
+            expirationDate: new Date(l.expirationDate),
+            stockQuantity: parseInt(l.stockQuantity, 10),
+            lotNumber: l.lotNumber ? l.lotNumber.toString().trim() : null,
+          })),
+        },
       },
+      include: { lotes: true },
     });
 
-    const diasRestantes = calcularDiasRestantes(expirationDate);
-
-    if (diasRestantes <= 15) {
-      const { message, type } = gerarMensagemAlerta(
-        name,
-        section,
-        diasRestantes,
-      );
-      await prisma.notification.create({
-        data: { userId, productId: product.productId, type, message },
-      });
-
-      // Se o alerta for crítico (<= 5 dias), dispara também via WhatsApp se o usuário tiver opt-in ativo
-      if (diasRestantes <= 5) {
-        await notificarWhatsappSeAtivo(
-          userId,
-          `⚠️ *Hopper — Alerta de validade*\n\nO lote de *${name}* no setor *${section}* está com vencimento crítico (${diasRestantes <= 0 ? "vencido" : `vence em ${diasRestantes} dia(s)`}).\n\nVerifique a gôndola o quanto antes.`,
-        );
-      }
-    }
+    await processarAlertasLotes(
+      userId,
+      product.productId,
+      name,
+      section,
+      product.lotes,
+    );
 
     await prisma.auditLogs.create({
       data: {
         userId,
         action: "Cadastro de Produto",
-        details: `Cadastrou o produto ${name} (SKU: ${sku}) no setor ${section}.`,
+        details: `Cadastrou o produto ${name} (SKU: ${sku}) com ${lotesRaw.length} lote(s) no setor ${section}.`,
       },
     });
 
@@ -181,56 +223,28 @@ export const updateProduct = async (
     const { userId } = authReq;
 
     if (!userId) {
-      res.status(401).json({ message: "Acesso negado." });
+      res
+        .status(401)
+        .json({ message: "Acesso negado. Usuário não identificado." });
       return;
     }
 
     const {
       sku,
       name,
-      stockQuantity,
       category,
       weight,
       unit,
-      expirationDate,
       section,
       note,
-      imageBase64,
-      isImageRemoved,
+      lotes: lotesRaw,
     } = authReq.body;
 
-    let imageUrl: string | undefined;
-    let shouldClearImage = false;
-
-    // 1. Lógica de remoção da imagem
-    if (isImageRemoved === true) {
-      const publicId = `products/product-${id}`;
-      await cloudinary.uploader.destroy(publicId);
-      shouldClearImage = true;
-    }
-
-    // 2. Lógica de upload de nova imagem
-    if (
-      typeof imageBase64 === "string" &&
-      imageBase64.startsWith("data:image")
-    ) {
-      const upload = await cloudinary.uploader.upload(imageBase64, {
-        folder: "products",
-        public_id: `product-${id}`,
-        overwrite: true,
-        invalidate: true,
-      });
-      imageUrl = upload.secure_url;
-    }
-
-    // 3. Atualização no Prisma
     const updatedProduct = await prisma.product.update({
       where: { productId: id, userId },
       data: {
         sku: sku !== undefined ? sku.toString().trim() : undefined,
         name: name !== undefined ? name.toString().trim() : undefined,
-        stockQuantity:
-          stockQuantity !== undefined ? parseInt(stockQuantity, 10) : undefined,
         category:
           category !== undefined ? category.toString().trim() : undefined,
         weight:
@@ -246,68 +260,54 @@ export const updateProduct = async (
               ? note.toString().trim()
               : null
             : undefined,
-        expirationDate:
-          expirationDate !== undefined ? new Date(expirationDate) : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
-        imageUrl: shouldClearImage ? null : imageUrl || undefined,
       },
     });
 
-    if (
-      expirationDate !== undefined ||
-      name !== undefined ||
-      section !== undefined
-    ) {
-      const diasRestantes = calcularDiasRestantes(
-        updatedProduct.expirationDate,
-      );
-      if (diasRestantes <= 15) {
-        const { message, type } = gerarMensagemAlerta(
-          updatedProduct.name,
-          updatedProduct.section,
-          diasRestantes,
-        );
-        const existente = await prisma.notification.findFirst({
-          where: { productId: id, userId },
-        });
-        if (existente) {
-          await prisma.notification.update({
-            where: { id: existente.id },
-            data: { message, type, isRead: false },
-          });
-        } else {
-          await prisma.notification.create({
-            data: { userId, productId: id, type, message },
-          });
-        }
+    // Atualiza lotes se fornecidos
+    if (lotesRaw && Array.isArray(lotesRaw)) {
+      // Remove lotes antigos e recria
+      await prisma.lote.deleteMany({ where: { productId: id } });
 
-        // Se o alerta atualizado for crítico, dispara via WhatsApp também
-        if (diasRestantes <= 5) {
-          await notificarWhatsappSeAtivo(
-            userId,
-            `⚠️ *Hopper — Alerta de validade*\n\nO lote de *${updatedProduct.name}* no setor *${updatedProduct.section}* está com vencimento crítico (${diasRestantes <= 0 ? "vencido" : `vence em ${diasRestantes} dia(s)`}).\n\nVerifique a gôndola o quanto antes.`,
-          );
-        }
-      } else {
-        await prisma.notification.deleteMany({
-          where: { productId: id, userId },
+      if (lotesRaw.length > 0) {
+        await prisma.lote.createMany({
+          data: lotesRaw.map((l: any) => ({
+            productId: id,
+            expirationDate: new Date(l.expirationDate),
+            stockQuantity: parseInt(l.stockQuantity, 10),
+            lotNumber: l.lotNumber ? l.lotNumber.toString().trim() : null,
+          })),
         });
       }
+
+      const lotesAtualizados = await prisma.lote.findMany({
+        where: { productId: id },
+      });
+      await processarAlertasLotes(
+        userId,
+        id,
+        updatedProduct.name,
+        updatedProduct.section,
+        lotesAtualizados,
+      );
     }
 
     await prisma.auditLogs.create({
       data: {
         userId,
         action: "Edição de Produto",
-        details: `Editou o produto ${updatedProduct.name}.`,
+        details: `Editou o produto SKU: ${sku || updatedProduct.sku}.`,
       },
     });
 
-    res.json(updatedProduct);
+    const produtoFinal = await prisma.product.findUnique({
+      where: { productId: id },
+      include: { lotes: { orderBy: { expirationDate: "asc" } } },
+    });
+
+    res.json(produtoFinal);
   } catch (error: any) {
-    res
-      .status(500)
-      .json({ message: "Erro ao atualizar produto.", error: error.message });
+    res.status(500).json({ message: "Erro ao atualizar produto." });
   }
 };
 
@@ -321,30 +321,16 @@ export const deleteProduct = async (
     const { userId } = authReq;
 
     if (!userId) {
-      res.status(401).json({ message: "Acesso negado." });
+      res
+        .status(401)
+        .json({ message: "Acesso negado. Usuário não identificado." });
       return;
-    }
-
-    const product = await prisma.product.findUnique({
-      where: { productId: id, userId },
-    });
-
-    if (!product) {
-      res.status(404).json({ message: "Produto não encontrado." });
-      return;
-    }
-
-    if (product.imageUrl) {
-      try {
-        const publicId = `products/product-${id}`;
-        await cloudinary.uploader.destroy(publicId);
-      } catch (cloudinaryError) {
-        console.error("Erro ao deletar imagem do Cloudinary:", cloudinaryError);
-      }
     }
 
     await prisma.notification.deleteMany({ where: { productId: id, userId } });
-    await prisma.product.delete({
+    await prisma.lote.deleteMany({ where: { productId: id } });
+
+    const deletedProduct = await prisma.product.delete({
       where: { productId: id, userId },
     });
 
@@ -352,11 +338,11 @@ export const deleteProduct = async (
       data: {
         userId,
         action: "Exclusão de Produto",
-        details: `Excluiu o produto ${product.name} (SKU: ${product.sku}).`,
+        details: `Excluiu o produto ${deletedProduct.name} (SKU: ${deletedProduct.sku}).`,
       },
     });
 
-    res.json({ message: "Produto e imagem excluídos com sucesso." });
+    res.json({ message: "Produto excluído com sucesso." });
   } catch (error: any) {
     res.status(500).json({ message: "Erro ao excluir produto." });
   }

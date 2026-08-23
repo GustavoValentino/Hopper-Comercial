@@ -94,6 +94,7 @@ const Products = () => {
     try {
       await createProduct(productData).unwrap();
       toast.success("Produto cadastrado com sucesso!");
+      setIsModalOpen(false);
     } catch (error) {
       toast.error("Erro ao cadastrar o produto.");
     }
@@ -223,7 +224,11 @@ const Products = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {productsToRender.map((product: any) => {
-              const qtd = product.stockQuantity;
+              const lotes = product.lotes || [];
+              const qtdTotal = lotes.reduce(
+                (acc: number, l: any) => acc + (l.stockQuantity || 0),
+                0,
+              );
 
               const hoje = new Date();
               hoje.setHours(0, 0, 0, 0);
@@ -236,43 +241,54 @@ const Products = () => {
                 </span>
               );
 
-              let dataExibicaoFormatada = "";
+              // Analisa os lotes para determinar o status global do produto
+              if (lotes.length > 0) {
+                let menorDataDiff = Infinity;
 
-              if (product.expirationDate) {
-                const stringDataPura = product.expirationDate.substring(0, 10);
-                const [ano, mes, dia] = stringDataPura.split("-");
+                lotes.forEach((lote: any) => {
+                  if (lote.expirationDate) {
+                    const stringDataPura = lote.expirationDate.substring(0, 10);
+                    const dataVencimento = new Date(
+                      `${stringDataPura}T00:00:00`,
+                    );
+                    const diferencaTempo =
+                      dataVencimento.getTime() - hoje.getTime();
+                    const diferencaDias = Math.ceil(
+                      diferencaTempo / (1000 * 60 * 60 * 24),
+                    );
 
-                dataExibicaoFormatada = `${dia}/${mes}/${ano}`;
+                    if (diferencaDias < menorDataDiff) {
+                      menorDataDiff = diferencaDias;
+                    }
+                  }
+                });
 
-                const dataVencimento = new Date(`${stringDataPura}T00:00:00`);
-                const diferencaTempo =
-                  dataVencimento.getTime() - hoje.getTime();
-                const diferencaDias = Math.ceil(
-                  diferencaTempo / (1000 * 60 * 60 * 24),
-                );
-
-                if (diferencaDias < 0) {
-                  corBordaSuperior = "border-t-rose-600 dark:border-t-rose-600";
-                  statusBadge = (
-                    <span className="text-[9px] bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 animate-pulse">
-                      <AlertTriangleIcon className="w-3 h-3" /> VENCIDO
-                    </span>
-                  );
-                } else if (diferencaDias <= 15) {
-                  corBordaSuperior =
-                    "border-t-amber-500 dark:border-t-amber-500";
-                  statusBadge = (
-                    <span className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                      <AlertTriangleIcon className="w-3 h-3" /> ALERTA VALIDADE
-                    </span>
-                  );
+                if (menorDataDiff !== Infinity) {
+                  if (menorDataDiff < 0) {
+                    corBordaSuperior =
+                      "border-t-rose-600 dark:border-t-rose-600";
+                    statusBadge = (
+                      <span className="text-[9px] bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 animate-pulse">
+                        <AlertTriangleIcon className="w-3 h-3" /> VENCIDO
+                      </span>
+                    );
+                  } else if (menorDataDiff <= 15) {
+                    corBordaSuperior =
+                      "border-t-amber-500 dark:border-t-amber-500";
+                    statusBadge = (
+                      <span className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                        <AlertTriangleIcon className="w-3 h-3" /> ALERTA
+                        VALIDADE
+                      </span>
+                    );
+                  }
                 }
               }
 
               return (
                 <div
                   key={product.productId}
-                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:border-x-gray-400/60 dark:hover:border-b-gray-400/60 transition-all duration-300 flex flex-col justify-between`}
+                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 flex flex-col justify-between`}
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between gap-2 mb-3">
@@ -302,6 +318,7 @@ const Products = () => {
                         {statusBadge}
                       </div>
                     </div>
+
                     <h3 className="text-sm text-gray-800 dark:text-gray-100 font-bold uppercase leading-snug mb-3 line-clamp-2 min-h-[2.25rem] tracking-tight">
                       {product.name}
                     </h3>
@@ -319,25 +336,57 @@ const Products = () => {
                         </span>
                       </div>
 
-                      {product.expirationDate && (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-xs text-amber-600 dark:text-amber-400 font-semibold">
-                            <CalendarDaysIcon className="w-3.5 h-3.5 mr-2" />
-                            <span>{dataExibicaoFormatada}</span>
+                      {/* Listagem de todos os lotes e validades */}
+                      <div className="border-t border-slate-200/60 dark:border-gray-600/50 pt-2 mt-1">
+                        <span className="text-[9px] text-gray-400 dark:text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
+                          Lotes e Validades ({lotes.length}):
+                        </span>
+                        {lotes.length > 0 ? (
+                          <div className="max-h-24 overflow-y-auto space-y-1.5 pr-1">
+                            {lotes.map((lote: any) => {
+                              const stringDataPura =
+                                lote.expirationDate?.substring(0, 10) || "";
+                              const [ano, mes, dia] = stringDataPura
+                                ? stringDataPura.split("-")
+                                : ["", "", ""];
+                              const dataFormatada = stringDataPura
+                                ? `${dia}/${mes}/${ano}`
+                                : "Sem data";
+
+                              return (
+                                <div
+                                  key={lote.loteId}
+                                  className="flex items-center justify-between text-[11px] bg-white dark:bg-gray-800 px-2 py-1 rounded border border-slate-200/40 dark:border-gray-700"
+                                >
+                                  <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                                    <CalendarDaysIcon className="w-3 h-3 shrink-0" />
+                                    <span>{dataFormatada}</span>
+                                    {lote.lotNumber && (
+                                      <span className="text-[9px] text-gray-400 dark:text-gray-500">
+                                        ({lote.lotNumber})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="font-bold text-gray-700 dark:text-gray-300">
+                                    {lote.stockQuantity} un
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
-                            Validade
+                        ) : (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500 italic block">
+                            Nenhum lote cadastrado.
                           </span>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex-grow mb-4">
-                      <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400 italic text-[11px] bg-gray-50/50 dark:bg-gray-900/20 p-2.5 rounded-lg border-l-2 border-slate-300 dark:border-gray-700 min-h-[2.75rem]">
+                      <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400 italic text-[11px] bg-gray-50/50 dark:bg-gray-900/20 p-2.5 rounded-lg border-l-2 border-slate-300 dark:border-gray-700 min-h-[2.5rem]">
                         <MessageSquareMoreIcon className="w-3.5 h-3.5 mt-0.5 text-gray-400 shrink-0" />
                         <p className="line-clamp-2 leading-relaxed">
-                          {product.note ||
-                            "Sem anotações complementares para este lote."}
+                          {product.note || "Sem anotações complementares."}
                         </p>
                       </div>
                     </div>
@@ -345,18 +394,18 @@ const Products = () => {
                     <div className="flex items-center justify-between pt-3.5 border-t border-gray-100 dark:border-gray-700/60">
                       <div className="flex flex-col">
                         <span className="text-[9px] text-gray-400 dark:text-gray-400 uppercase font-bold tracking-wider">
-                          Qtd em Estoque
+                          Estoque Total
                         </span>
                         <span
                           className={`text-base font-black tracking-tight mt-0.5 ${
-                            qtd < 5
+                            qtdTotal < 5
                               ? "text-rose-600 dark:text-rose-400"
-                              : qtd <= 15
+                              : qtdTotal <= 15
                                 ? "text-amber-600 dark:text-amber-400"
                                 : "text-emerald-600 dark:text-emerald-400"
                           }`}
                         >
-                          {qtd} un
+                          {qtdTotal} un
                         </span>
                       </div>
 
@@ -405,6 +454,7 @@ const Products = () => {
         onClose={() => setIsModalOpen(false)}
         onCreate={handleCreateProduct}
       />
+
       {lightboxProduct && (
         <div
           className="flex fixed inset-0 z-50 items-center justify-center p-4 bg-black/60 backdrop-blur-xs"

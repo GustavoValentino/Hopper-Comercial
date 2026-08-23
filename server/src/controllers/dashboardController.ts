@@ -24,8 +24,11 @@ export const getDashboardMetrics = async (
 
     const popularProducts = await prisma.product.findMany({
       where: { userId },
+      include: {
+        lotes: true,
+      },
       take: 15,
-      orderBy: { stockQuantity: "desc" },
+      orderBy: { updatedAt: "desc" },
     });
 
     res.json({ popularProducts });

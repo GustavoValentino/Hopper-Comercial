@@ -16,7 +16,7 @@ async function deleteAllData(orderedFileNames: string[]) {
       console.log(`Cleared data from ${modelName}`);
     } else {
       console.error(
-        `Model ${modelName} not found. Please ensure the model name is correctly specified.`
+        `Model ${modelName} not found. Please ensure the model name is correctly specified.`,
       );
     }
   }

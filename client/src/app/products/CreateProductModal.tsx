@@ -26,26 +26,32 @@ import {
   EditIcon,
   CheckCircle2,
   AlertCircle,
-  Camera,
   ChevronDown,
   X,
   ImagePlus,
   ZoomIn,
   Trash2,
   Barcode,
+  Plus,
 } from "lucide-react";
+
+export type LoteFormData = {
+  loteId?: string;
+  lotNumber?: string;
+  expirationDate: string;
+  stockQuantity: number;
+};
 
 type ProductFormData = {
   productId?: string;
   sku: string;
   name: string;
-  stockQuantity: number;
   category: string;
   weight: number;
   unit: "KG" | "ML_G";
-  expirationDate: string;
   section: string;
   note: string;
+  lotes: LoteFormData[];
   imageUrl?: string;
   imageBase64?: string;
   isImageRemoved?: boolean;
@@ -55,7 +61,7 @@ type CreateProductModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (formData: ProductFormData) => void;
-  initialData?: ProductFormData | null;
+  initialData?: any | null;
 };
 
 const SECOES_SUPERMERCADO = [
@@ -98,13 +104,16 @@ const CreateProductModal = ({
     productId: v4(),
     sku: "",
     name: "",
-    stockQuantity: "0",
     category: "",
     weight: "0,000",
-    expirationDate: "",
     section: "",
     note: "",
   });
+
+  // Estado para múltiplos lotes
+  const [lotes, setLotes] = useState<LoteFormData[]>([
+    { loteId: v4(), lotNumber: "", expirationDate: "", stockQuantity: 1 },
+  ]);
 
   const [skuErro, setSkuErro] = useState<string | null>(null);
   const [skuValido, setSkuValido] = useState<boolean>(false);
@@ -115,11 +124,9 @@ const CreateProductModal = ({
 
   const isEditing = !!initialData;
 
-  // ── Hook de Busca Externa (Cosmos / Open Food Facts) ────────
   const [triggerLookup, { isLoading: isSearchingApi }] =
     useLazyLookupProductByEanQuery();
 
-  // ── Estado da imagem do produto ─────────────────────────────
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [isCropOpen, setIsCropOpen] = useState(false);
@@ -132,7 +139,6 @@ const CreateProductModal = ({
   useEffect(() => {
     if (initialData) {
       const pesoNumerico = initialData.weight || 0;
-
       const definirUnidade =
         initialData.unit ||
         (pesoNumerico < 1 && pesoNumerico > 0 ? "ML_G" : "KG");
@@ -143,24 +149,41 @@ const CreateProductModal = ({
           ? String(Math.round(pesoNumerico * 1000))
           : pesoNumerico.toFixed(3).replace(".", ",");
 
-      const extrairDataStringPura = (dataRaw: string) => {
-        if (!dataRaw) return "";
-        return dataRaw.substring(0, 10);
-      };
-
       setFormData({
         productId: initialData.productId || v4(),
         sku: initialData.sku || "",
         name: initialData.name || "",
-        stockQuantity: String(initialData.stockQuantity || 0),
         category: initialData.category || "",
         weight: pesoFormatado,
-        expirationDate: initialData.expirationDate
-          ? extrairDataStringPura(initialData.expirationDate)
-          : "",
         section: initialData.section || "",
         note: initialData.note || "",
       });
+
+      // Mapeia lotes vindos do backend ou cria um fallback caso use a estrutura antiga
+      if (initialData.lotes && initialData.lotes.length > 0) {
+        setLotes(
+          initialData.lotes.map((l: any) => ({
+            loteId: l.loteId || v4(),
+            lotNumber: l.lotNumber || "",
+            expirationDate: l.expirationDate
+              ? l.expirationDate.substring(0, 10)
+              : "",
+            stockQuantity: l.stockQuantity || 0,
+          })),
+        );
+      } else {
+        setLotes([
+          {
+            loteId: v4(),
+            lotNumber: initialData.lotNumber || "",
+            expirationDate: initialData.expirationDate
+              ? initialData.expirationDate.substring(0, 10)
+              : "",
+            stockQuantity: initialData.stockQuantity || 0,
+          },
+        ]);
+      }
+
       const valido = validarEAN13(initialData.sku || "");
       setSkuValido(valido);
       setSkuErro(valido ? null : "Código EAN inválido na base de dados");
@@ -172,13 +195,14 @@ const CreateProductModal = ({
         productId: v4(),
         sku: "",
         name: "",
-        stockQuantity: "0",
         category: "",
         weight: "0,000",
-        expirationDate: "",
         section: "",
         note: "",
       });
+      setLotes([
+        { loteId: v4(), lotNumber: "", expirationDate: "", stockQuantity: 1 },
+      ]);
       setSkuErro(null);
       setSkuValido(false);
       setImagePreview(null);
@@ -203,10 +227,8 @@ const CreateProductModal = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ── useEffect Automático para Busca via API quando SKU = 13 ──
   useEffect(() => {
     const buscarProdutoExterno = async () => {
-      // ⛔ TRAVA CRUCIAL: Se estiver no modo de edição, não dispara buscas externas automáticas
       if (isEditing) return;
 
       if (formData.sku.length === 13 && validarEAN13(formData.sku)) {
@@ -279,8 +301,6 @@ const CreateProductModal = ({
 
     if (name === "sku") {
       processarEValidarSku(value);
-    } else if (name === "stockQuantity") {
-      setFormData({ ...formData, stockQuantity: formatarQuantidadeBR(value) });
     } else if (name === "weight") {
       setFormData({
         ...formData,
@@ -291,12 +311,38 @@ const CreateProductModal = ({
     }
   };
 
+  // Funções para gerenciar os lotes
+  const handleLoteChange = (
+    index: number,
+    field: keyof LoteFormData,
+    value: any,
+  ) => {
+    const novosLotes = [...lotes];
+    if (field === "stockQuantity") {
+      novosLotes[index][field] = parseInt(value, 10) || 0;
+    } else {
+      (novosLotes[index] as any)[field] = value;
+    }
+    setLotes(novosLotes);
+  };
+
+  const adicionarLote = () => {
+    setLotes([
+      ...lotes,
+      { loteId: v4(), lotNumber: "", expirationDate: "", stockQuantity: 1 },
+    ]);
+  };
+
+  const removerLote = (index: number) => {
+    if (lotes.length === 1) return; // Mantém pelo menos um lote
+    setLotes(lotes.filter((_, i) => i !== index));
+  };
+
   const handleLeituraCameraSucesso = (codigoEscaneado: string) => {
     processarEValidarSku(codigoEscaneado);
     setIsCameraAberta(false);
   };
 
-  // ── Handlers de imagem ───────────────────────────────────────
   const handleSelecionarImagem = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -339,10 +385,14 @@ const CreateProductModal = ({
 
     const dadosParaEnviar: ProductFormData = {
       ...formData,
-      stockQuantity: parseInt(formData.stockQuantity, 10) || 0,
       weight: pesoFinal,
       unit: unidadeMedida,
       section: formData.category.trim(),
+      lotes: lotes.map((l) => ({
+        lotNumber: l.lotNumber?.trim() || undefined,
+        expirationDate: l.expirationDate,
+        stockQuantity: Number(l.stockQuantity) || 0,
+      })),
       ...(newImageBase64 && { imageBase64: newImageBase64 }),
       isImageRemoved,
     };
@@ -366,7 +416,7 @@ const CreateProductModal = ({
   return (
     <>
       <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-lg bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-xl p-6 md:p-8 max-h-[90vh] overflow-y-auto transition-all scale-100">
+        <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-xl p-6 md:p-8 max-h-[90vh] overflow-y-auto transition-all scale-100">
           <button
             type="button"
             onClick={onClose}
@@ -376,7 +426,9 @@ const CreateProductModal = ({
           </button>
 
           <Header
-            name={isEditing ? "Editar Produto" : "Cadastrar Novo Produto"}
+            name={
+              isEditing ? "Editar Produto e Lotes" : "Cadastrar Novo Produto"
+            }
           />
 
           <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-2 gap-4">
@@ -587,32 +639,12 @@ const CreateProductModal = ({
               )}
             </div>
 
-            {/* QUANTIDADE EM ESTOQUE */}
-            <div>
-              <label htmlFor="stockQuantity" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <PackageIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Qtd. Estoque
-                </span>
-              </label>
-              <input
-                type="text"
-                name="stockQuantity"
-                inputMode="numeric"
-                placeholder="0"
-                onChange={handleChange}
-                value={formData.stockQuantity}
-                className={`${inputCssStyles} text-right font-semibold`}
-                required
-              />
-            </div>
-
             {/* PESO / VOLUME COM SELETOR ACOPLADO */}
-            <div>
+            <div className="col-span-2">
               <label htmlFor="weight" className={labelCssStyles}>
                 <span className="flex items-center gap-1.5">
                   <ScaleIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Peso / Vol. Líquido
+                  Peso / Vol. Líquido Unitário
                 </span>
               </label>
               <div className="flex border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
@@ -643,26 +675,103 @@ const CreateProductModal = ({
               </div>
             </div>
 
-            {/* DATA DE VENCIMENTO */}
-            <div className="col-span-2">
-              <label htmlFor="expirationDate" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <CalendarIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Data de Vencimento
-                </span>
-              </label>
-              <input
-                type="date"
-                name="expirationDate"
-                onChange={handleChange}
-                value={formData.expirationDate}
-                className={`${inputCssStyles} cursor-pointer`}
-                required
-              />
+            {/* SEÇÃO DE GERENCIAMENTO DE LOTES */}
+            <div className="col-span-2 border-t border-gray-100 dark:border-gray-700/60 pt-4 mt-2">
+              <div className="flex items-center justify-between mb-2">
+                <label className={labelCssStyles + " mb-0"}>
+                  <span className="flex items-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
+                    Gerenciamento de Lotes e Validades
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={adicionarLote}
+                  className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" /> Adicionar Lote
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {lotes.map((lote, index) => (
+                  <div
+                    key={lote.loteId || index}
+                    className="grid grid-cols-12 gap-2 p-3 bg-gray-50/70 dark:bg-gray-900/30 border border-gray-200/70 dark:border-gray-700/60 rounded-lg items-center relative group"
+                  >
+                    <div className="col-span-4">
+                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
+                        Nº DO LOTE (OPCIONAL)
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Ex: L-001"
+                        value={lote.lotNumber || ""}
+                        onChange={(e) =>
+                          handleLoteChange(index, "lotNumber", e.target.value)
+                        }
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div className="col-span-4">
+                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
+                        VENCIMENTO *
+                      </span>
+                      <input
+                        type="date"
+                        required
+                        value={lote.expirationDate}
+                        onChange={(e) =>
+                          handleLoteChange(
+                            index,
+                            "expirationDate",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="col-span-3">
+                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
+                        QUANTIDADE *
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        required
+                        value={formatarQuantidadeBR(String(lote.stockQuantity))}
+                        onChange={(e) =>
+                          handleLoteChange(
+                            index,
+                            "stockQuantity",
+                            e.target.value,
+                          )
+                        }
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-semibold text-right text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div className="col-span-1 flex items-end justify-center pt-4">
+                      {lotes.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removerLote(index)}
+                          className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                          title="Remover lote"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* OBSERVAÇÃO */}
-            <div className="col-span-2">
+            <div className="col-span-2 pt-2">
               <label htmlFor="note" className={labelCssStyles}>
                 <span className="flex items-center gap-1.5">
                   <EditIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}

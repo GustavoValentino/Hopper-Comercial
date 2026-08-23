@@ -4,12 +4,16 @@ import React, { useState, useMemo } from "react";
 import { useGetDashboardMetricsQuery } from "@/state/api";
 import { AlertTriangle, Package2 } from "lucide-react";
 
+interface LoteData {
+  stockQuantity: number;
+}
+
 interface ProdutoCritico {
   productId: string;
   name: string;
-  stockQuantity: number;
+  lotes?: LoteData[];
   imageUrl?: string;
-  image?: string; // Fallback legadp
+  image?: string; // Fallback legado
   [key: string]: any;
 }
 
@@ -30,8 +34,28 @@ const CardEstoqueCritico = () => {
   >({});
 
   const produtosCriticos = useMemo(() => {
-    const produtos: ProdutoCritico[] = dashboardMetrics?.popularProducts || [];
-    return produtos.filter((p) => p.stockQuantity <= 20).slice(0, 4);
+    const produtos: any[] = dashboardMetrics?.popularProducts || [];
+
+    // Mapeia os produtos calculando o estoque total através da soma dos lotes
+    const produtosComEstoqueTotal: ProdutoCritico[] = produtos.map((p) => {
+      const totalEstoque =
+        p.lotes && Array.isArray(p.lotes)
+          ? p.lotes.reduce(
+              (acc: number, lote: LoteData) => acc + (lote.stockQuantity || 0),
+              0,
+            )
+          : 0;
+
+      return {
+        ...p,
+        stockQuantity: totalEstoque,
+      };
+    });
+
+    // Filtra os itens com estoque menor ou igual a 20 e pega os 4 primeiros
+    return produtosComEstoqueTotal
+      .filter((p) => p.stockQuantity <= 20)
+      .slice(0, 4);
   }, [dashboardMetrics?.popularProducts]);
 
   const handleImageError = (productId: string) => {
