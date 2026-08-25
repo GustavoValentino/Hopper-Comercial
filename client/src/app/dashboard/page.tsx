@@ -621,12 +621,10 @@ const Dashboard = () => {
               <DialogContent className="w-[95vw] sm:max-w-[780px] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 p-5 sm:p-6 shadow-2xl rounded-2xl transition-colors [&>button]:text-gray-500 [&>button]:dark:text-gray-400 [&>button]:hover:text-gray-800 [&>button]:dark:hover:text-gray-200 [&>button]:hover:bg-gray-100 [&>button]:dark:hover:bg-gray-800 [&>button]:rounded-lg [&>button]:transition-colors">
                 <DialogHeader>
                   <DialogTitle className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-100">
-                    Configurar Exportação de Dados por Lotes
+                    Configurar Exportação de Dados
                   </DialogTitle>
                   <DialogDescription className="text-xs text-gray-400 dark:text-gray-500">
-                    Filtre os lotes por status de criticidade e corredor para
-                    refinar o relatório em PDF com códigos de barra, quantidades
-                    e validades detalhadas.
+                    Filtre os produtos por status de criticidade e departamento
                   </DialogDescription>
                 </DialogHeader>
 
@@ -743,7 +741,7 @@ const Dashboard = () => {
                 <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
                   <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Prévia dos Lotes Filtrados
+                      Prévia dos Produtos Filtrados
                     </span>
                     <span
                       className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
@@ -868,7 +866,7 @@ const Dashboard = () => {
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] hover:bg-[#00522c] text-white rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" aria-hidden="true" />
-                    Baixar Relatório em PDF ({obterLotesFiltrados.length})
+                    Baixar PDF
                   </button>
                 </div>
               </DialogContent>
