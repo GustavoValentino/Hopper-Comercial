@@ -110,7 +110,6 @@ const CreateProductModal = ({
     note: "",
   });
 
-  // Estado para múltiplos lotes
   const [lotes, setLotes] = useState<LoteFormData[]>([
     { loteId: v4(), lotNumber: "", expirationDate: "", stockQuantity: 1 },
   ]);
@@ -159,7 +158,6 @@ const CreateProductModal = ({
         note: initialData.note || "",
       });
 
-      // Mapeia lotes vindos do backend ou cria um fallback caso use a estrutura antiga
       if (initialData.lotes && initialData.lotes.length > 0) {
         setLotes(
           initialData.lotes.map((l: any) => ({
@@ -294,6 +292,28 @@ const CreateProductModal = ({
     }
   };
 
+  const handleLeituraCameraSucesso = (codigoLido: string) => {
+    setIsCameraAberta(false);
+    processarEValidarSku(codigoLido);
+  };
+
+  const handleCancelarRecorte = () => {
+    setIsCropOpen(false);
+    setPendingFile(null);
+  };
+
+  const handleAplicarRecorte = () => {
+    if (editorRef.current) {
+      const canvas = editorRef.current.getImageScaledToCanvas();
+      const base64String = canvas.toDataURL("image/jpeg");
+      setImagePreview(base64String);
+      setNewImageBase64(base64String);
+      setIsImageRemoved(false);
+      setIsCropOpen(false);
+      setPendingFile(null);
+    }
+  };
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
@@ -311,7 +331,6 @@ const CreateProductModal = ({
     }
   };
 
-  // Funções para gerenciar os lotes
   const handleLoteChange = (
     index: number,
     field: keyof LoteFormData,
@@ -334,13 +353,8 @@ const CreateProductModal = ({
   };
 
   const removerLote = (index: number) => {
-    if (lotes.length === 1) return; // Mantém pelo menos um lote
+    if (lotes.length === 1) return;
     setLotes(lotes.filter((_, i) => i !== index));
-  };
-
-  const handleLeituraCameraSucesso = (codigoEscaneado: string) => {
-    processarEValidarSku(codigoEscaneado);
-    setIsCameraAberta(false);
   };
 
   const handleSelecionarImagem = (e: ChangeEvent<HTMLInputElement>) => {
@@ -352,27 +366,31 @@ const CreateProductModal = ({
     e.target.value = "";
   };
 
-  const handleAplicarRecorte = () => {
-    if (!editorRef.current) return;
-    const canvas = editorRef.current.getImage();
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    setNewImageBase64(dataUrl);
-    setImagePreview(dataUrl);
-    setIsCropOpen(false);
-    setPendingFile(null);
-    setIsImageRemoved(false);
-  };
-
-  const handleCancelarRecorte = () => {
-    setIsCropOpen(false);
-    setPendingFile(null);
-  };
-
   const handleRemoverImagem = () => {
     setImagePreview(null);
     setNewImageBase64(null);
     setIsImageRemoved(true);
   };
+
+  const getValidadeStatus = (dateStr: string) => {
+    if (!dateStr) return "bg-gray-300 dark:bg-gray-600";
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const validade = new Date(dateStr + "T00:00:00");
+    const diffDays = Math.ceil(
+      (validade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diffDays < 0) return "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]";
+    if (diffDays <= 30)
+      return "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]";
+    return "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
+  };
+
+  const totalUnidadesLotes = lotes.reduce(
+    (acc, l) => acc + (Number(l.stockQuantity) || 0),
+    0,
+  );
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -675,98 +693,117 @@ const CreateProductModal = ({
               </div>
             </div>
 
-            {/* SEÇÃO DE GERENCIAMENTO DE LOTES */}
+            {/* SEÇÃO DE LOTES */}
             <div className="col-span-2 border-t border-gray-100 dark:border-gray-700/60 pt-4 mt-2">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <label className={labelCssStyles + " mb-0"}>
                   <span className="flex items-center gap-1.5">
                     <CalendarIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
                     Gerenciamento de Lotes e Validades
                   </span>
                 </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded-md">
+                    Total:{" "}
+                    <strong className="text-emerald-600 dark:text-emerald-400">
+                      {formatarQuantidadeBR(String(totalUnidadesLotes))} un
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-gray-50/50 dark:bg-gray-900/30 border border-gray-200/80 dark:border-gray-700/70 rounded-xl overflow-hidden shadow-2xs">
+                <div className="grid grid-cols-12 gap-2 px-3.5 py-2 bg-gray-100/70 dark:bg-gray-800/60 border-b border-gray-200/70 dark:border-gray-700/60 text-[10px] font-black tracking-wider text-gray-400 dark:text-gray-400 uppercase">
+                  <div className="col-span-4">Nº do Lote</div>
+                  <div className="col-span-4">Validade</div>
+                  <div className="col-span-3 text-right">Qtd.</div>
+                  <div className="col-span-1 text-center">Ação</div>
+                </div>
+
+                <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                  {lotes.map((lote, index) => (
+                    <div
+                      key={lote.loteId || index}
+                      className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-white/80 dark:hover:bg-gray-800/40 transition-colors group relative"
+                    >
+                      <div className="col-span-4">
+                        <input
+                          type="text"
+                          placeholder="Opcional (Ex: L-01)"
+                          value={lote.lotNumber || ""}
+                          onChange={(e) =>
+                            handleLoteChange(index, "lotNumber", e.target.value)
+                          }
+                          className="w-full px-2.5 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs font-mono text-gray-700 dark:text-gray-200 focus:outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-gray-600"
+                        />
+                      </div>
+
+                      <div className="col-span-4 relative flex items-center">
+                        <span
+                          className={`absolute left-2.5 w-2 h-2 rounded-full transition-all ${getValidadeStatus(
+                            lote.expirationDate,
+                          )}`}
+                          title="Status do prazo de validade"
+                        />
+                        <input
+                          type="date"
+                          required
+                          value={lote.expirationDate}
+                          onChange={(e) =>
+                            handleLoteChange(
+                              index,
+                              "expirationDate",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full pl-7 pr-2 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs text-gray-700 dark:text-gray-200 focus:outline-none transition-all cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="col-span-3">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required
+                          value={formatarQuantidadeBR(
+                            String(lote.stockQuantity),
+                          )}
+                          onChange={(e) =>
+                            handleLoteChange(
+                              index,
+                              "stockQuantity",
+                              e.target.value,
+                            )
+                          }
+                          className="w-full px-2 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs font-semibold text-right text-gray-700 dark:text-gray-200 focus:outline-none transition-all"
+                        />
+                      </div>
+
+                      <div className="col-span-1 flex items-center justify-center">
+                        {lotes.length > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removerLote(index)}
+                            className="p-1 text-gray-300 hover:text-rose-500 dark:text-gray-600 dark:hover:text-rose-400 opacity-60 group-hover:opacity-100 transition-all cursor-pointer"
+                            title="Remover este lote"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="w-3.5" />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
                 <button
                   type="button"
                   onClick={adicionarLote}
-                  className="px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                  className="w-full py-2.5 px-3 border-t border-dashed border-gray-200 dark:border-gray-700/70 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Plus className="w-3 h-3" /> Adicionar Lote
+                  <Plus className="w-3.5 h-3.5" /> Adicionar novo lote
                 </button>
-              </div>
-
-              <div className="space-y-2.5">
-                {lotes.map((lote, index) => (
-                  <div
-                    key={lote.loteId || index}
-                    className="grid grid-cols-12 gap-2 p-3 bg-gray-50/70 dark:bg-gray-900/30 border border-gray-200/70 dark:border-gray-700/60 rounded-lg items-center relative group"
-                  >
-                    <div className="col-span-4">
-                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
-                        Nº DO LOTE (OPCIONAL)
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Ex: L-001"
-                        value={lote.lotNumber || ""}
-                        onChange={(e) =>
-                          handleLoteChange(index, "lotNumber", e.target.value)
-                        }
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-mono text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div className="col-span-4">
-                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
-                        VENCIMENTO *
-                      </span>
-                      <input
-                        type="date"
-                        required
-                        value={lote.expirationDate}
-                        onChange={(e) =>
-                          handleLoteChange(
-                            index,
-                            "expirationDate",
-                            e.target.value,
-                          )
-                        }
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="col-span-3">
-                      <span className="block text-[10px] font-bold text-gray-400 mb-0.5">
-                        QUANTIDADE *
-                      </span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        required
-                        value={formatarQuantidadeBR(String(lote.stockQuantity))}
-                        onChange={(e) =>
-                          handleLoteChange(
-                            index,
-                            "stockQuantity",
-                            e.target.value,
-                          )
-                        }
-                        className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-xs font-semibold text-right text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div className="col-span-1 flex items-end justify-center pt-4">
-                      {lotes.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removerLote(index)}
-                          className="p-1.5 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                          title="Remover lote"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -814,66 +851,67 @@ const CreateProductModal = ({
         </div>
       </div>
 
-      {/* MODAL DE RECORTE DE IMAGEM */}
+      {/* MODAL DA CÂMERA SCANNER */}
+      {isCameraAberta && (
+        <ScannerCamera
+          onClose={() => setIsCameraAberta(false)}
+          onScanSuccess={handleLeituraCameraSucesso}
+        />
+      )}
+
+      {/* MODAL DE CORTE DE IMAGEM */}
       {isCropOpen && pendingFile && (
-        <div className="fixed inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4 text-center">
-              Ajustar foto do produto
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col items-center">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4">
+              Ajustar Imagem do Produto
             </h3>
 
-            <div className="flex justify-center mb-4">
+            <div className="relative w-48 h-48 rounded-xl overflow-hidden border-2 border-emerald-500/50 shadow-inner bg-gray-900">
               <AvatarEditor
                 ref={editorRef}
                 image={pendingFile}
-                width={220}
-                height={220}
-                border={20}
+                width={192}
+                height={192}
+                border={0}
                 borderRadius={12}
-                color={[0, 0, 0, 0.5]}
+                color={[0, 0, 0, 0.6]}
                 scale={scale}
                 rotate={0}
               />
             </div>
 
-            <div className="flex items-center gap-2 mb-5">
+            <div className="w-full mt-4 flex items-center gap-3">
               <ZoomIn className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="range"
-                min={1}
-                max={3}
-                step={0.01}
+                min="1"
+                max="3"
+                step="0.05"
                 value={scale}
                 onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="w-full accent-emerald-600"
+                className="w-full accent-emerald-500 cursor-pointer"
               />
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="w-full grid grid-cols-2 gap-2 mt-6">
               <button
                 type="button"
                 onClick={handleCancelarRecorte}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600/80 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                className="py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleAplicarRecorte}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
               >
-                Aplicar
+                Aplicar Corte
               </button>
             </div>
           </div>
         </div>
-      )}
-
-      {isCameraAberta && (
-        <ScannerCamera
-          onScanSuccess={handleLeituraCameraSucesso}
-          onClose={() => setIsCameraAberta(false)}
-        />
       )}
     </>
   );
