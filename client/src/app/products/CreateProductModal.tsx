@@ -662,7 +662,7 @@ const CreateProductModal = ({
               <label htmlFor="weight" className={labelCssStyles}>
                 <span className="flex items-center gap-1.5">
                   <ScaleIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Peso / Vol. Líquido Unitário
+                  Peso / Vol.
                 </span>
               </label>
               <div className="flex border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
@@ -699,7 +699,7 @@ const CreateProductModal = ({
                 <label className={labelCssStyles + " mb-0"}>
                   <span className="flex items-center gap-1.5">
                     <CalendarIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                    Gerenciamento de Lotes e Validades
+                    Lotes e Validades
                   </span>
                 </label>
                 <div className="flex items-center gap-2">
