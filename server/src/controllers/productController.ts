@@ -1,8 +1,15 @@
 import { Request, Response } from "express";
 import { PrismaClient, ProductUnit } from "@prisma/client";
 import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
+import { v2 as cloudinary } from "cloudinary";
 
 const prisma = new PrismaClient();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const calcularDiasRestantes = (expirationDate: Date): number => {
   const hoje = new Date();
@@ -39,10 +46,8 @@ const processarAlertasLotes = async (
   setor: string,
   lotes: { expirationDate: Date }[],
 ) => {
-  // Remove notificações antigas do produto
   await prisma.notification.deleteMany({ where: { productId, userId } });
 
-  // Cria nova notificação para o lote mais crítico
   const lotesCriticos = lotes
     .map((l) => ({ ...l, dias: calcularDiasRestantes(l.expirationDate) }))
     .filter((l) => l.dias <= 15)
@@ -57,6 +62,24 @@ const processarAlertasLotes = async (
     await prisma.notification.create({
       data: { userId, productId, type, message },
     });
+  }
+};
+
+const uploadImagemCloudinary = async (
+  imageBase64: string,
+  productId: string,
+): Promise<string | null> => {
+  if (!imageBase64?.startsWith("data:image")) return null;
+  try {
+    const upload = await cloudinary.uploader.upload(imageBase64, {
+      folder: "produtos",
+      public_id: `produto-${productId}`,
+      overwrite: true,
+      invalidate: true,
+    });
+    return upload.secure_url;
+  } catch {
+    return null;
   }
 };
 
@@ -82,22 +105,18 @@ export const getProducts = async (
           : undefined,
       },
       include: {
-        lotes: {
-          orderBy: { expirationDate: "asc" },
-        },
+        lotes: { orderBy: { expirationDate: "asc" } },
       },
       orderBy: { updatedAt: "desc" },
     });
 
-    // Serializa para o frontend — mantém compatibilidade com campos antigos
     const produtosSerialized = products.map((p) => {
-      const lotesMaisUrgente = p.lotes[0];
+      const loteMaisUrgente = p.lotes[0];
       return {
         ...p,
-        // Campos de compatibilidade (pega do lote mais urgente)
-        expirationDate: lotesMaisUrgente?.expirationDate ?? null,
+        expirationDate: loteMaisUrgente?.expirationDate ?? null,
         stockQuantity: p.lotes.reduce((acc, l) => acc + l.stockQuantity, 0),
-        lotNumber: lotesMaisUrgente?.lotNumber ?? null,
+        lotNumber: loteMaisUrgente?.lotNumber ?? null,
         lotes: p.lotes,
       };
     });
@@ -131,6 +150,7 @@ export const createProduct = async (
       unit,
       section,
       note,
+      imageBase64,
       lotes: lotesRaw,
     } = authReq.body;
 
@@ -158,7 +178,10 @@ export const createProduct = async (
           });
         return;
       }
-      if (!lote.stockQuantity || parseInt(lote.stockQuantity, 10) < 0) {
+      if (
+        lote.stockQuantity === undefined ||
+        parseInt(lote.stockQuantity, 10) < 0
+      ) {
         res
           .status(400)
           .json({
@@ -168,6 +191,7 @@ export const createProduct = async (
       }
     }
 
+    // Cria o produto sem imagem primeiro para ter o productId
     const product = await prisma.product.create({
       data: {
         sku: sku?.toString().trim(),
@@ -188,6 +212,19 @@ export const createProduct = async (
       },
       include: { lotes: true },
     });
+
+    // Faz upload da imagem se fornecida
+    const imageUrl = await uploadImagemCloudinary(
+      imageBase64,
+      product.productId,
+    );
+    if (imageUrl) {
+      await prisma.product.update({
+        where: { productId: product.productId },
+        data: { imageUrl },
+      });
+      product.imageUrl = imageUrl;
+    }
 
     await processarAlertasLotes(
       userId,
@@ -237,8 +274,12 @@ export const updateProduct = async (
       unit,
       section,
       note,
+      imageBase64,
       lotes: lotesRaw,
     } = authReq.body;
+
+    // Upload da imagem se fornecida
+    const imageUrl = await uploadImagemCloudinary(imageBase64, id);
 
     const updatedProduct = await prisma.product.update({
       where: { productId: id, userId },
@@ -261,12 +302,11 @@ export const updateProduct = async (
               : null
             : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
+        ...(imageUrl ? { imageUrl } : {}),
       },
     });
 
-    // Atualiza lotes se fornecidos
     if (lotesRaw && Array.isArray(lotesRaw)) {
-      // Remove lotes antigos e recria
       await prisma.lote.deleteMany({ where: { productId: id } });
 
       if (lotesRaw.length > 0) {
