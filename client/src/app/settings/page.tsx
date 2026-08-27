@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   RotateCw,
   Unlink,
+  ZoomIn,
 } from "lucide-react";
 
 import {
@@ -43,6 +44,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import AvatarEditor from "react-avatar-editor";
 
 type TextSettings = {
   username: string;
@@ -273,11 +275,21 @@ const Settings = () => {
   const handlePencilClick = () => {
     fileInputRef.current?.click();
   };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setSelectedFile(e.target.files[0]);
       setIsEditorOpen(true);
+    }
+  };
+
+  const handleSaveCroppedImage = () => {
+    if (editorRef.current) {
+      const canvas = editorRef.current.getImageScaledToCanvas();
+      const dataUrl = canvas.toDataURL();
+      setProfileImage(dataUrl);
+      setIsImageChanged(true);
+      setIsEditorOpen(false);
+      setSelectedFile(null);
     }
   };
 
@@ -932,6 +944,74 @@ const Settings = () => {
             </div>
           </div>
         </form>
+      )}
+
+      {isEditorOpen && selectedFile && (
+        <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-sm bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-2xl rounded-xl p-6 text-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditorOpen(false);
+                setSelectedFile(null);
+              }}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wider mb-5">
+              Ajustar Imagem
+            </h3>
+
+            <div className="flex justify-center bg-gray-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+              <AvatarEditor
+                ref={editorRef}
+                image={selectedFile}
+                width={180}
+                height={180}
+                border={20}
+                borderRadius={100}
+                color={[31, 41, 55, 0.6]}
+                scale={zoom}
+                rotate={0}
+              />
+            </div>
+
+            <div className="mt-5 flex items-center gap-3 justify-center">
+              <ZoomIn className="w-4 h-4 text-gray-400" />
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.01"
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+            </div>
+
+            <div className="flex gap-3 mt-6 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditorOpen(false);
+                  setSelectedFile(null);
+                }}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCroppedImage}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-md"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Modal sofisticado de vínculo do WhatsApp ─────────────── */}
