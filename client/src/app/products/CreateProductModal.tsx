@@ -859,55 +859,55 @@ const CreateProductModal = ({
         />
       )}
 
-      {/* MODAL DE CORTE DE IMAGEM */}
+      {/* MODAL DE RECORTE DE IMAGEM */}
       {isCropOpen && pendingFile && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col items-center">
-            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4">
-              Ajustar Imagem do Produto
+        <div className="fixed inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-xs z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-4 text-center">
+              Ajustar foto do produto
             </h3>
 
-            <div className="relative w-48 h-48 rounded-xl overflow-hidden border-2 border-emerald-500/50 shadow-inner bg-gray-900">
+            <div className="flex justify-center mb-4">
               <AvatarEditor
                 ref={editorRef}
                 image={pendingFile}
-                width={192}
-                height={192}
-                border={0}
+                width={220}
+                height={220}
+                border={20}
                 borderRadius={12}
-                color={[0, 0, 0, 0.6]}
+                color={[0, 0, 0, 0.5]}
                 scale={scale}
                 rotate={0}
               />
             </div>
 
-            <div className="w-full mt-4 flex items-center gap-3">
+            <div className="flex items-center gap-2 mb-5">
               <ZoomIn className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="range"
-                min="1"
-                max="3"
-                step="0.05"
+                min={1}
+                max={3}
+                step={0.01}
                 value={scale}
                 onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="w-full accent-emerald-500 cursor-pointer"
+                className="w-full accent-emerald-600"
               />
             </div>
 
-            <div className="w-full grid grid-cols-2 gap-2 mt-6">
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={handleCancelarRecorte}
-                className="py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600/80 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleAplicarRecorte}
-                className="py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
               >
-                Aplicar Corte
+                Aplicar
               </button>
             </div>
           </div>
