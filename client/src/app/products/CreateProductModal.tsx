@@ -23,7 +23,6 @@ import {
   PackageIcon,
   ScaleIcon,
   CalendarIcon,
-  EditIcon,
   CheckCircle2,
   AlertCircle,
   ChevronDown,
@@ -33,6 +32,8 @@ import {
   Trash2,
   Barcode,
   Plus,
+  FileText,
+  Sparkles,
 } from "lucide-react";
 
 export type LoteFormData = {
@@ -422,9 +423,9 @@ const CreateProductModal = ({
   if (!isOpen) return null;
 
   const labelCssStyles =
-    "block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5";
+    "block text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1";
   const inputCssStyles =
-    "block w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700/80 rounded-lg text-xs text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium";
+    "block w-full px-3.5 py-2 bg-gray-50/80 dark:bg-gray-900/40 border border-gray-200/90 dark:border-gray-700/70 rounded-lg text-xs text-gray-800 dark:text-gray-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium placeholder:text-gray-400 dark:placeholder:text-gray-600";
 
   const labelCategoriaAtual =
     SECOES_SUPERMERCADO.flatMap((g) => g.itens).find(
@@ -433,61 +434,61 @@ const CreateProductModal = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-gray-900/40 dark:bg-black/60 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/70 shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-xl p-6 md:p-8 max-h-[90vh] overflow-y-auto transition-all scale-100">
+      <div className="fixed inset-0 bg-gray-900/50 dark:bg-black/70 backdrop-blur-xs overflow-y-auto h-full w-full z-50 flex items-center justify-center p-3 sm:p-4">
+        <div className="relative w-full max-w-2xl bg-white dark:bg-gray-800/95 border border-gray-100 dark:border-gray-700/70 shadow-[0_25px_60px_rgba(0,0,0,0.2)] dark:shadow-[0_25px_60px_rgba(0,0,0,0.5)] rounded-2xl p-5 sm:p-7 max-h-[92vh] overflow-y-auto transition-all scale-100">
+          {/* Botão Fechar */}
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+            className="absolute top-4 right-4 p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
 
-          <Header
-            name={
-              isEditing ? "Editar Produto e Lotes" : "Cadastrar Novo Produto"
-            }
-          />
+          {/* Cabeçalho */}
+          <div className="flex items-center justify-between pb-4 mb-5 border-b border-gray-100 dark:border-gray-700/60">
+            <Header
+              name={
+                isEditing ? "Editar Produto e Lotes" : "Cadastrar Novo Produto"
+              }
+            />
+          </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 grid grid-cols-2 gap-4">
-            {/* FOTO DO PRODUTO */}
-            <div className="col-span-2 flex items-center gap-4">
-              <div className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center">
-                {imagePreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imagePreview}
-                    alt="Prévia do produto"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <ImagePlus className="w-6 h-6 text-gray-300 dark:text-gray-600" />
-                )}
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className={labelCssStyles + " mb-0"}>
-                  Foto do Produto (opcional)
-                </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <ImagePlus className="w-3.5 h-3.5" />
-                    {imagePreview ? "Trocar foto" : "Adicionar foto"}
-                  </button>
-
-                  {imagePreview && (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Bloco 1: Identificação Principal & Foto (Grid Compacto) */}
+            <div className="bg-gray-50/60 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-200/60 dark:border-gray-700/60 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+              {/* Foto do Produto (Compacta) */}
+              <div className="sm:col-span-3 flex sm:flex-col items-center gap-3 sm:gap-2">
+                <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center shadow-xs group">
+                  {imagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imagePreview}
+                      alt="Prévia"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImagePlus className="w-5 h-5 text-gray-400 dark:text-gray-600" />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {!imagePreview ? (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ImagePlus className="w-3.5 h-3.5" />
+                      Adicionar Foto
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={handleRemoverImagem}
-                      className="px-3 py-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
-                      title="Remover foto"
+                      className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Excluir
+                      Excluir Foto
                     </button>
                   )}
                 </div>
@@ -499,221 +500,227 @@ const CreateProductModal = ({
                   className="hidden"
                 />
               </div>
+
+              {/* SKU e Nome */}
+              <div className="sm:col-span-9 space-y-3">
+                {/* Código de Barras */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="sku" className={labelCssStyles + " mb-0"}>
+                      <span className="flex items-center gap-1">
+                        <BarcodeIcon className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                        Código de Barras (EAN)
+                      </span>
+                    </label>
+                    {skuValido && (
+                      <span className="text-[9px] uppercase font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
+                        <CheckCircle2 className="w-3 h-3" /> Válido
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      name="sku"
+                      placeholder="Bipe ou digite o código..."
+                      onChange={handleChange}
+                      value={formData.sku}
+                      className={`${inputCssStyles} font-mono tracking-wider flex-1 ${
+                        skuErro && formData.sku.length === 13
+                          ? "border-rose-500 focus:ring-rose-500"
+                          : ""
+                      } ${skuValido ? "border-emerald-500 bg-emerald-50/10 dark:bg-emerald-950/10" : ""}`}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraAberta(true)}
+                      className="px-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/40 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 transition-all flex items-center justify-center cursor-pointer shadow-xs"
+                      title="Escanear com a câmera"
+                    >
+                      <Barcode className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {skuErro && (
+                    <p
+                      className={`text-[10px] mt-1 flex items-center gap-1 ${formData.sku.length === 13 ? "text-rose-500 font-semibold" : "text-gray-400"}`}
+                    >
+                      {skuErro}
+                    </p>
+                  )}
+                  {isSearchingApi && (
+                    <p className="text-[10px] mt-1 text-blue-500 font-medium animate-pulse flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Consultando bases
+                      oficiais...
+                    </p>
+                  )}
+                </div>
+
+                {/* Nome do Produto */}
+                <div>
+                  <label htmlFor="name" className={labelCssStyles}>
+                    <span className="flex items-center gap-1">
+                      <PackageIcon className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                      Nome do Produto
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Ex: Arroz Branco Camil Tipo 1 5kg"
+                    onChange={handleChange}
+                    value={formData.name}
+                    className={inputCssStyles}
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* CÓDIGO DE BARRAS (SKU) */}
-            <div className="col-span-2">
-              <div className="flex justify-between items-center mb-1.5">
-                <label htmlFor="sku" className={labelCssStyles}>
-                  <span className="flex items-center gap-1.5">
-                    <BarcodeIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                    Código de Barras
+            {/* Bloco 2: Categoria, Peso/Volume (Grid de 2 colunas perfeitamente alinhado) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Corredor / Departamento (Dropdown Customizado) */}
+              <div className="relative" ref={dropdownRef}>
+                <label htmlFor="category" className={labelCssStyles}>
+                  <span className="flex items-center gap-1">
+                    <TagIcon className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                    Corredor / Departamento
                   </span>
                 </label>
-                {skuValido && (
-                  <span className="text-[10px] uppercase font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 tracking-wider bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md">
-                    <CheckCircle2 className="w-3 h-3" /> Válido
+                <button
+                  type="button"
+                  onClick={() => setIsSelectAberto(!isSelectAberto)}
+                  className={`w-full flex items-center justify-between px-3.5 py-2 bg-gray-50/80 dark:bg-gray-900/40 border rounded-lg text-xs transition-all text-left font-medium cursor-pointer ${
+                    isSelectAberto
+                      ? "border-emerald-500 ring-1 ring-emerald-500 text-gray-800 dark:text-gray-100"
+                      : "border-gray-200/90 dark:border-gray-700/70 text-gray-700 dark:text-gray-200 hover:bg-gray-100/50"
+                  }`}
+                >
+                  <span
+                    className={
+                      formData.category
+                        ? "font-semibold truncate pr-2"
+                        : "text-gray-400 truncate pr-2"
+                    }
+                  >
+                    {labelCategoriaAtual}
                   </span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 shrink-0 ${isSelectAberto ? "rotate-180 text-emerald-500" : ""}`}
+                  />
+                </button>
+
+                {isSelectAberto && (
+                  <div className="absolute top-[100%] left-0 w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-lg shadow-xl mt-1 z-50 max-h-56 overflow-y-auto">
+                    {SECOES_SUPERMERCADO.map((grupo) => (
+                      <div
+                        key={grupo.grupo}
+                        className="border-b border-gray-50 last:border-none dark:border-gray-700/50 pb-1"
+                      >
+                        <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-gray-400 bg-gray-50/50 dark:bg-gray-900/30">
+                          {grupo.grupo}
+                        </div>
+                        <div className="px-1 pt-0.5 space-y-0.5">
+                          {grupo.itens.map((item) => {
+                            const selecionado =
+                              formData.category === item.value;
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    category: item.value,
+                                  });
+                                  setIsSelectAberto(false);
+                                }}
+                                className={`w-full text-left px-2.5 py-1.5 text-xs rounded transition-colors cursor-pointer flex justify-between items-center ${
+                                  selecionado
+                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
+                                    : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                }`}
+                              >
+                                <span className="truncate">{item.label}</span>
+                                {selecionado && (
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  name="sku"
-                  placeholder="Bipe com o leitor ou use a câmera..."
-                  onChange={handleChange}
-                  value={formData.sku}
-                  className={`${inputCssStyles} font-mono tracking-wider flex-1 ${
-                    skuErro && formData.sku.length === 13
-                      ? "border-rose-500 focus:ring-rose-500 focus:border-rose-500"
-                      : ""
-                  } ${skuValido ? "border-emerald-500 focus:ring-emerald-500 bg-emerald-50/10 dark:bg-emerald-950/10" : ""}`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setIsCameraAberta(true)}
-                  className="px-3.5 py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100/20 text-emerald-600 dark:text-emerald-400 rounded-lg hover:bg-emerald-100/70 dark:hover:bg-emerald-950/60 transition-all flex items-center justify-center shadow-xs active:scale-95 cursor-pointer"
-                >
-                  <Barcode className="w-4 h-4" />
-                </button>
-              </div>
-              {skuErro && (
-                <p
-                  className={`text-[11px] mt-1.5 flex items-center gap-1 ${
-                    formData.sku.length === 13
-                      ? "text-rose-600 dark:text-rose-400 font-semibold"
-                      : "text-gray-400 dark:text-gray-500"
-                  }`}
-                >
-                  {formData.sku.length === 13 && (
-                    <AlertCircle className="w-3 h-3 text-rose-500" />
-                  )}
-                  {skuErro}
-                </p>
-              )}
-              {isSearchingApi && (
-                <p className="text-[11px] mt-1.5 text-blue-600 dark:text-blue-400 font-medium animate-pulse">
-                  Buscando informações do produto nas bases oficiais...
-                </p>
-              )}
-            </div>
 
-            {/* NOME DO PRODUTO */}
-            <div className="col-span-2">
-              <label htmlFor="name" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <PackageIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Nome do Produto
-                </span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                placeholder="Ex: Arroz Branco Camil Tipo 1 5kg"
-                onChange={handleChange}
-                value={formData.name}
-                className={inputCssStyles}
-                required
-              />
-            </div>
-
-            {/* DROPDOWN CUSTOMIZADO DE CATEGORIA */}
-            <div className="col-span-2 relative" ref={dropdownRef}>
-              <label htmlFor="category" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <TagIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Corredor e Departamento
-                </span>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => setIsSelectAberto(!isSelectAberto)}
-                className={`w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 border rounded-lg text-xs transition-all text-left font-medium outline-hidden cursor-pointer ${
-                  isSelectAberto
-                    ? "border-emerald-500 ring-1 ring-emerald-500 text-gray-800 dark:text-gray-100"
-                    : "border-gray-200 dark:border-gray-700/80 text-gray-700 dark:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-900/80"
-                }`}
-              >
-                <span
-                  className={
-                    formData.category
-                      ? "font-semibold"
-                      : "text-gray-400 dark:text-gray-500 font-normal"
-                  }
-                >
-                  {labelCategoriaAtual}
-                </span>
-                <ChevronDown
-                  className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 shrink-0 ${
-                    isSelectAberto ? "rotate-180 text-emerald-500" : ""
-                  }`}
-                  strokeWidth={2.5}
-                />
-              </button>
-
-              {isSelectAberto && (
-                <div className="absolute top-[100%] left-0 w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/80 rounded-lg shadow-xl mt-1 z-50 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-                  {SECOES_SUPERMERCADO.map((grupo) => (
-                    <div
-                      key={grupo.grupo}
-                      className="border-b border-gray-50 last:border-none dark:border-gray-700/50 pb-1.5"
-                    >
-                      <div className="px-3.5 py-2 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 bg-gray-50/50 dark:bg-gray-900/30 select-none">
-                        {grupo.grupo}
-                      </div>
-                      <div className="px-1.5 pt-1 space-y-0.5">
-                        {grupo.itens.map((item) => {
-                          const selecionado = formData.category === item.value;
-                          return (
-                            <button
-                              key={item.value}
-                              type="button"
-                              onClick={() => {
-                                setFormData({
-                                  ...formData,
-                                  category: item.value,
-                                });
-                                setIsSelectAberto(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-xs rounded-md transition-colors cursor-pointer flex justify-between items-center ${
-                                selecionado
-                                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-bold"
-                                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-100"
-                              }`}
-                            >
-                              {item.label}
-                              {selecionado && (
-                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+              {/* Peso / Volume com seletor acoplado */}
+              <div>
+                <label htmlFor="weight" className={labelCssStyles}>
+                  <span className="flex items-center gap-1">
+                    <ScaleIcon className="w-3.5 h-3.5 text-emerald-500" /> Peso
+                    / Volume
+                  </span>
+                </label>
+                <div className="flex border border-gray-200/90 dark:border-gray-700/70 bg-gray-50/80 dark:bg-gray-900/40 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const novaUnidade =
+                        unidadeMedida === "KG" ? "ML_G" : "KG";
+                      setUnidadeMedida(novaUnidade);
+                      setFormData({
+                        ...formData,
+                        weight: novaUnidade === "KG" ? "0,000" : "0",
+                      });
+                    }}
+                    className="bg-gray-100/80 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 px-2.5 text-[9px] font-black text-gray-500 dark:text-gray-400 hover:bg-gray-200 transition-colors uppercase tracking-wider min-w-[65px] text-center cursor-pointer select-none"
+                    title="Alternar unidade"
+                  >
+                    {unidadeMedida === "KG" ? "⚖️ KG" : "💧 ML"}
+                  </button>
+                  <input
+                    type="text"
+                    name="weight"
+                    inputMode="numeric"
+                    placeholder={unidadeMedida === "KG" ? "0,000" : "0"}
+                    onChange={handleChange}
+                    value={formData.weight}
+                    className="w-full px-3 py-2 text-right font-mono text-xs text-gray-800 dark:text-gray-100 bg-transparent focus:outline-none"
+                  />
                 </div>
-              )}
-            </div>
-
-            {/* PESO / VOLUME COM SELETOR ACOPLADO */}
-            <div className="col-span-2">
-              <label htmlFor="weight" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <ScaleIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Peso / Vol.
-                </span>
-              </label>
-              <div className="flex border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-all">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const novaUnidade = unidadeMedida === "KG" ? "ML_G" : "KG";
-                    setUnidadeMedida(novaUnidade);
-                    setFormData({
-                      ...formData,
-                      weight: novaUnidade === "KG" ? "0,000" : "0",
-                    });
-                  }}
-                  className="bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 px-3 text-[9px] font-black text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors uppercase tracking-wider min-w-[75px] select-none text-center cursor-pointer"
-                  title="Clique para alternar a unidade de medida"
-                >
-                  {unidadeMedida === "KG" ? "⚖️ KG" : "💧 ML"}
-                </button>
-                <input
-                  type="text"
-                  name="weight"
-                  inputMode="numeric"
-                  placeholder={unidadeMedida === "KG" ? "0,000" : "0"}
-                  onChange={handleChange}
-                  value={formData.weight}
-                  className="w-full px-3 py-2.5 text-right font-mono text-xs text-gray-700 dark:text-gray-200 bg-transparent focus:outline-none"
-                />
               </div>
             </div>
 
-            {/* SEÇÃO DE LOTES */}
-            <div className="col-span-2 border-t border-gray-100 dark:border-gray-700/60 pt-4 mt-2">
-              <div className="flex items-center justify-between mb-3">
+            {/* Bloco 3: Gestão de Lotes & Validades (Compacto e Elegante) */}
+            <div className="border-t border-gray-100 dark:border-gray-700/60 pt-3.5">
+              <div className="flex items-center justify-between mb-2.5">
                 <label className={labelCssStyles + " mb-0"}>
-                  <span className="flex items-center gap-1.5">
-                    <CalendarIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
+                  <span className="flex items-center gap-1">
+                    <CalendarIcon className="w-3.5 h-3.5 text-emerald-500" />{" "}
                     Lotes e Validades
                   </span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded">
                     Total:{" "}
                     <strong className="text-emerald-600 dark:text-emerald-400">
                       {formatarQuantidadeBR(String(totalUnidadesLotes))} un
                     </strong>
                   </span>
+                  <button
+                    type="button"
+                    onClick={adicionarLote}
+                    className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 hover:bg-emerald-100 px-2 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" /> Novo Lote
+                  </button>
                 </div>
               </div>
 
-              <div className="bg-gray-50/50 dark:bg-gray-900/30 border border-gray-200/80 dark:border-gray-700/70 rounded-xl overflow-hidden shadow-2xs">
-                <div className="grid grid-cols-12 gap-2 px-3.5 py-2 bg-gray-100/70 dark:bg-gray-800/60 border-b border-gray-200/70 dark:border-gray-700/60 text-[10px] font-black tracking-wider text-gray-400 dark:text-gray-400 uppercase">
+              <div className="bg-gray-50/50 dark:bg-gray-900/30 border border-gray-200/70 dark:border-gray-700/70 rounded-xl overflow-hidden">
+                <div className="grid grid-cols-12 gap-1.5 px-3 py-1.5 bg-gray-100/70 dark:bg-gray-800/60 border-b border-gray-200/60 dark:border-gray-700/60 text-[9px] font-black tracking-wider text-gray-400 uppercase">
                   <div className="col-span-4">Nº do Lote</div>
                   <div className="col-span-4">Validade</div>
                   <div className="col-span-3 text-right">Qtd.</div>
@@ -724,26 +731,24 @@ const CreateProductModal = ({
                   {lotes.map((lote, index) => (
                     <div
                       key={lote.loteId || index}
-                      className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-white/80 dark:hover:bg-gray-800/40 transition-colors group relative"
+                      className="grid grid-cols-12 gap-1.5 px-2.5 py-1.5 items-center hover:bg-white/80 dark:hover:bg-gray-800/40 transition-colors group relative"
                     >
                       <div className="col-span-4">
                         <input
                           type="text"
-                          placeholder="Opcional (Ex: L-01)"
+                          placeholder="Opcional"
                           value={lote.lotNumber || ""}
                           onChange={(e) =>
                             handleLoteChange(index, "lotNumber", e.target.value)
                           }
-                          className="w-full px-2.5 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs font-mono text-gray-700 dark:text-gray-200 focus:outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-gray-600"
+                          className="w-full px-2 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-xs font-mono text-gray-800 dark:text-gray-100 focus:outline-none"
                         />
                       </div>
 
                       <div className="col-span-4 relative flex items-center">
                         <span
-                          className={`absolute left-2.5 w-2 h-2 rounded-full transition-all ${getValidadeStatus(
-                            lote.expirationDate,
-                          )}`}
-                          title="Status do prazo de validade"
+                          className={`absolute left-2 w-1.5 h-1.5 rounded-full ${getValidadeStatus(lote.expirationDate)}`}
+                          title="Status do prazo"
                         />
                         <input
                           type="date"
@@ -756,7 +761,7 @@ const CreateProductModal = ({
                               e.target.value,
                             )
                           }
-                          className="w-full pl-7 pr-2 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs text-gray-700 dark:text-gray-200 focus:outline-none transition-all cursor-pointer"
+                          className="w-full pl-5 pr-1.5 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-[11px] text-gray-800 dark:text-gray-100 focus:outline-none cursor-pointer"
                         />
                       </div>
 
@@ -775,7 +780,7 @@ const CreateProductModal = ({
                               e.target.value,
                             )
                           }
-                          className="w-full px-2 py-1.5 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded-md text-xs font-semibold text-right text-gray-700 dark:text-gray-200 focus:outline-none transition-all"
+                          className="w-full px-1.5 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-xs font-semibold text-right text-gray-800 dark:text-gray-100 focus:outline-none"
                         />
                       </div>
 
@@ -784,64 +789,57 @@ const CreateProductModal = ({
                           <button
                             type="button"
                             onClick={() => removerLote(index)}
-                            className="p-1 text-gray-300 hover:text-rose-500 dark:text-gray-600 dark:hover:text-rose-400 opacity-60 group-hover:opacity-100 transition-all cursor-pointer"
-                            title="Remover este lote"
+                            className="p-1 text-gray-400 hover:text-rose-500 transition-all cursor-pointer"
+                            title="Remover lote"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         ) : (
-                          <span className="w-3.5" />
+                          <span className="text-gray-300 dark:text-gray-700 text-[10px]">
+                            -
+                          </span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-
-                <button
-                  type="button"
-                  onClick={adicionarLote}
-                  className="w-full py-2.5 px-3 border-t border-dashed border-gray-200 dark:border-gray-700/70 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" /> Adicionar novo lote
-                </button>
               </div>
             </div>
 
-            {/* OBSERVAÇÃO */}
-            <div className="col-span-2 pt-2">
+            {/* Bloco 4: Observações Opcionais (Compacto) */}
+            <div>
               <label htmlFor="note" className={labelCssStyles}>
-                <span className="flex items-center gap-1.5">
-                  <EditIcon className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />{" "}
-                  Observação Importante
+                <span className="flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-emerald-500" />{" "}
+                  Observação Importante (Opcional)
                 </span>
               </label>
               <textarea
                 name="note"
-                placeholder="Ex: Lote com embalagem frágil..."
+                rows={2}
+                placeholder="Ex: Lote com embalagem frágil ou cuidados especiais..."
                 onChange={handleChange}
                 value={formData.note}
-                className={`${inputCssStyles} h-20 resize-none`}
+                className={inputCssStyles + " resize-none"}
               />
             </div>
 
-            {/* BOTÕES DE AÇÃO */}
-            <div className="col-span-2 flex justify-end gap-3 mt-4">
+            {/* Botões de Ação Final */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100 dark:border-gray-700/60">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600/80 text-gray-700 dark:text-gray-200 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700/50 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={!skuValido}
-                className={`px-6 py-2.5 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs cursor-pointer ${
-                  !skuValido
-                    ? "bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-60"
-                    : isEditing
-                      ? "bg-amber-500 hover:bg-amber-600 active:scale-95 shadow-md"
-                      : "bg-emerald-600 hover:bg-emerald-700 active:scale-95 shadow-md"
+                className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md ${
+                  skuValido
+                    ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20 cursor-pointer active:scale-95"
+                    : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60"
                 }`}
               >
                 {isEditing ? "Salvar" : "Cadastrar"}
