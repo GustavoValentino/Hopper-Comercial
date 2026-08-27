@@ -693,7 +693,6 @@ const CreateProductModal = ({
               </div>
             </div>
 
-            {/* Bloco 3: Gestão de Lotes & Validades (Compacto e Elegante) */}
             <div className="border-t border-gray-100 dark:border-gray-700/60 pt-3.5">
               <div className="flex items-center justify-between mb-2.5">
                 <label className={labelCssStyles + " mb-0"}>
@@ -719,20 +718,20 @@ const CreateProductModal = ({
                 </div>
               </div>
 
-              <div className="bg-gray-50/50 dark:bg-gray-900/30 border border-gray-200/70 dark:border-gray-700/70 rounded-xl overflow-hidden">
-                <div className="grid grid-cols-12 gap-1.5 px-3 py-1.5 bg-gray-100/70 dark:bg-gray-800/60 border-b border-gray-200/60 dark:border-gray-700/60 text-[9px] font-black tracking-wider text-gray-400 uppercase">
+              <div className="bg-gray-50/50 dark:bg-gray-900/30 border border-gray-200/70 dark:border-gray-700/70 rounded-xl overflow-hidden p-2.5">
+                <div className="grid grid-cols-12 gap-1.5 px-1 pb-2 border-b border-gray-200/60 dark:border-gray-700/60 text-[9px] font-black tracking-wider text-gray-400 uppercase">
                   <div className="col-span-4">Nº do Lote</div>
                   <div className="col-span-4">Validade</div>
-                  <div className="col-span-3 text-right">Qtd.</div>
-                  <div className="col-span-1 text-center">Ação</div>
+                  <div className="col-span-3 text-right">Quantidade</div>
                 </div>
 
-                <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                <div className="space-y-2 pt-2">
                   {lotes.map((lote, index) => (
                     <div
                       key={lote.loteId || index}
-                      className="grid grid-cols-12 gap-1.5 px-2.5 py-1.5 items-center hover:bg-white/80 dark:hover:bg-gray-800/40 transition-colors group relative"
+                      className="grid grid-cols-12 gap-1.5 items-center group"
                     >
+                      {/* Número do Lote */}
                       <div className="col-span-4">
                         <input
                           type="text"
@@ -741,13 +740,14 @@ const CreateProductModal = ({
                           onChange={(e) =>
                             handleLoteChange(index, "lotNumber", e.target.value)
                           }
-                          className="w-full px-2 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-xs font-mono text-gray-800 dark:text-gray-100 focus:outline-none"
+                          className="w-full px-2.5 py-1.5 bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-700/70 focus:border-emerald-500 rounded-lg text-xs font-mono text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
                         />
                       </div>
 
+                      {/* Validade */}
                       <div className="col-span-4 relative flex items-center">
                         <span
-                          className={`absolute left-2 w-1.5 h-1.5 rounded-full ${getValidadeStatus(lote.expirationDate)}`}
+                          className={`absolute left-2.5 w-1.5 h-1.5 rounded-full z-10 ${getValidadeStatus(lote.expirationDate)}`}
                           title="Status do prazo"
                         />
                         <input
@@ -761,10 +761,11 @@ const CreateProductModal = ({
                               e.target.value,
                             )
                           }
-                          className="w-full pl-5 pr-1.5 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-[11px] text-gray-800 dark:text-gray-100 focus:outline-none cursor-pointer"
+                          className="w-full pl-6 pr-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-700/70 focus:border-emerald-500 rounded-lg text-[11px] text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all cursor-pointer"
                         />
                       </div>
 
+                      {/* Quantidade */}
                       <div className="col-span-3">
                         <input
                           type="text"
@@ -780,10 +781,11 @@ const CreateProductModal = ({
                               e.target.value,
                             )
                           }
-                          className="w-full px-1.5 py-1 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-gray-700 focus:bg-white dark:focus:bg-gray-800 focus:border-emerald-500 rounded text-xs font-semibold text-right text-gray-800 dark:text-gray-100 focus:outline-none"
+                          className="w-full px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-200/90 dark:border-gray-700/70 focus:border-emerald-500 rounded-lg text-xs font-semibold text-right text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
                         />
                       </div>
 
+                      {/* Ação (Remover) */}
                       <div className="col-span-1 flex items-center justify-center">
                         {lotes.length > 1 ? (
                           <button
@@ -805,7 +807,6 @@ const CreateProductModal = ({
                 </div>
               </div>
             </div>
-
             {/* Bloco 4: Observações Opcionais (Compacto) */}
             <div>
               <label htmlFor="note" className={labelCssStyles}>
