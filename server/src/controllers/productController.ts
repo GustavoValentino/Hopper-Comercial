@@ -160,33 +160,26 @@ export const createProduct = async (
     }
 
     if (!lotesRaw || !Array.isArray(lotesRaw) || lotesRaw.length === 0) {
-      res
-        .status(400)
-        .json({
-          message:
-            "Informe ao menos um lote com data de validade e quantidade.",
-        });
+      res.status(400).json({
+        message: "Informe ao menos um lote com data de validade e quantidade.",
+      });
       return;
     }
 
     for (const lote of lotesRaw) {
       if (!lote.expirationDate) {
-        res
-          .status(400)
-          .json({
-            message: "Todos os lotes precisam ter uma data de validade.",
-          });
+        res.status(400).json({
+          message: "Todos os lotes precisam ter uma data de validade.",
+        });
         return;
       }
       if (
         lote.stockQuantity === undefined ||
         parseInt(lote.stockQuantity, 10) < 0
       ) {
-        res
-          .status(400)
-          .json({
-            message: "Todos os lotes precisam ter uma quantidade válida.",
-          });
+        res.status(400).json({
+          message: "Todos os lotes precisam ter uma quantidade válida.",
+        });
         return;
       }
     }
@@ -275,11 +268,20 @@ export const updateProduct = async (
       section,
       note,
       imageBase64,
+      isImageRemoved,
       lotes: lotesRaw,
     } = authReq.body;
 
-    // Upload da imagem se fornecida
-    const imageUrl = await uploadImagemCloudinary(imageBase64, id);
+    // Gerencia a atualização ou remoção da imagem
+    let imageUrlUpdate = {};
+    if (imageBase64) {
+      const imageUrl = await uploadImagemCloudinary(imageBase64, id);
+      if (imageUrl) {
+        imageUrlUpdate = { imageUrl };
+      }
+    } else if (isImageRemoved) {
+      imageUrlUpdate = { imageUrl: null };
+    }
 
     const updatedProduct = await prisma.product.update({
       where: { productId: id, userId },
@@ -302,7 +304,7 @@ export const updateProduct = async (
               : null
             : undefined,
         section: section !== undefined ? section.toString().trim() : undefined,
-        ...(imageUrl ? { imageUrl } : {}),
+        ...imageUrlUpdate,
       },
     });
 
