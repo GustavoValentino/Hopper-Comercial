@@ -115,7 +115,6 @@ export async function verificarVencimentosCriticos(): Promise<void> {
   const limiteCritico = new Date(hoje);
   limiteCritico.setUTCDate(limiteCritico.getUTCDate() + JANELA_ALERTA_DIAS);
 
-  // Busca produtos incluindo seus lotes e dados do usuário proprietário
   const produtosComLotes = await prisma.product.findMany({
     include: {
       lotes: true,
@@ -141,54 +140,55 @@ export async function verificarVencimentosCriticos(): Promise<void> {
       const diffTime = expDate.getTime() - hoje.getTime();
       const diasRestantes = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      // Verifica se está dentro da janela de alerta (não vencido há muito tempo, e até o limite crítico)
       if (diasRestantes >= 0 && diasRestantes <= JANELA_ALERTA_DIAS) {
         totalLotesNaJanela++;
         const loteIdOuNumero = lote.lotNumber || "Principal";
 
-        // Evita duplicar notificações se o job rodar várias vezes no mesmo dia para o mesmo lote
+        // Verifica se já enviamos notificação para este lote hoje
         const alertaExistente = await prisma.notification.findFirst({
           where: {
             userId: donoId,
             productId: produto.productId,
             type: "CRITICAL_EXPIRY",
-            message: { contains: `lote ${loteIdOuNumero}` },
+            message: { contains: `Lote: ${loteIdOuNumero}` },
             createdAt: { gte: hoje },
           },
         });
 
-        if (alertaExistente) continue;
-
         const mensagemDias =
           diasRestantes === 0
             ? "vence HOJE!"
-            : `vence em ${diasRestantes} dias!`;
+            : diasRestantes === 1
+              ? "vence AMANHÃ!"
+              : `vence em ${diasRestantes} dias!`;
+
         const mensagemTexto = `[URGENTE] O produto '${produto.name}' (Lote: ${loteIdOuNumero}) no setor ${setor} ${mensagemDias}.`;
 
-        // 1. Notificação Interna
-        await prisma.notification.create({
-          data: {
-            userId: donoId,
-            productId: produto.productId,
-            type: "CRITICAL_EXPIRY",
-            message: mensagemTexto,
-            isRead: false,
-          },
-        });
+        // Se ainda não foi gerado o alerta interno hoje, cria a notificação e dispara Push/E-mail
+        if (!alertaExistente) {
+          await prisma.notification.create({
+            data: {
+              userId: donoId,
+              productId: produto.productId,
+              type: "CRITICAL_EXPIRY",
+              message: mensagemTexto,
+              isRead: false,
+            },
+          });
 
-        // 2. Push e E-mail
-        await dispararPushEEmail(
-          donoId,
-          produto.user.email,
-          produto.name,
-          produto.productId,
-          loteIdOuNumero,
-          mensagemTexto,
-          mensagemDias,
-          setor,
-        );
+          await dispararPushEEmail(
+            donoId,
+            produto.user.email,
+            produto.name,
+            produto.productId,
+            loteIdOuNumero,
+            mensagemTexto,
+            mensagemDias,
+            setor,
+          );
+        }
 
-        // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
+        // 3. WhatsApp (Dispara se estiver na janela de 5 dias, independente da notificação interna)
         if (diasRestantes <= 5) {
           await notificarWhatsappSeAtivo(
             donoId,
@@ -203,7 +203,6 @@ export async function verificarVencimentosCriticos(): Promise<void> {
     `[cron] ${totalLotesNaJanela} lote(s) processado(s) na janela de alerta de vencimento.`,
   );
 }
-
 export const getNotifications = async (
   req: Request,
   res: Response,
