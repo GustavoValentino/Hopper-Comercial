@@ -16,8 +16,9 @@ import auditRoutes from "./routes/auditRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import dns from "dns";
-import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
-import { iniciarConexaoWhatsapp } from "./lib/whatsapp.js"; // Correção: Usando a função do nosso lib/whatsapp.ts
+// import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
+import { iniciarConexaoWhatsapp } from "./lib/whatsapp.js";
+import jobRoutes from "./routes/jobRoutes.js";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -69,6 +70,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/audit-logs", auditRoutes);
+app.use("/api/jobs", jobRoutes);
 
 // Nota: Certifique-se de que o middleware de proteção de rota (ex: authenticate / protegerRota)
 // está importado e disponível aqui se optar por usá-lo nas rotas do WhatsApp.
@@ -92,7 +94,7 @@ io.on("connection", (socket) => {
 });
 
 // Job agendado: verifica produtos críticos e dispara notificação automaticamente
-iniciarJobVerificacaoVencimentos();
+// iniciarJobVerificacaoVencimentos();
 
 const port = Number(process.env.PORT) || 3001;
 

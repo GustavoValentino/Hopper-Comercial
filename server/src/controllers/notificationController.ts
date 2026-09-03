@@ -204,6 +204,46 @@ export async function verificarVencimentosCriticos(): Promise<void> {
   );
 }
 
+/**
+ * Controller endpoint HTTP para disparar a verificação de vencimentos de forma externa (via cron-job.org)
+ */
+export async function dispararVerificacaoVencimentosJob(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization;
+    const tokenSecretConfig = process.env.JOB_SECRET_TOKEN;
+
+    if (!tokenSecretConfig || authHeader !== `Bearer ${tokenSecretConfig}`) {
+      res
+        .status(401)
+        .json({ error: "Não autorizado: Token inválido ou ausente." });
+      return;
+    }
+
+    console.log("[cron-externo] Iniciando verificação diária via webhook...");
+
+    await verificarVencimentosCriticos();
+
+    res
+      .status(200)
+      .json({
+        success: true,
+        message: "Verificação de vencimentos executada com sucesso!",
+      });
+  } catch (error: any) {
+    console.error("[cron-externo] Erro ao executar verificação:", error);
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: "Erro interno ao processar vencimentos",
+        details: error.message,
+      });
+  }
+}
+
 export const getNotifications = async (
   req: Request,
   res: Response,
