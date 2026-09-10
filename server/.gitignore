@@ -12,3 +12,4 @@ build
 # Logs e arquivos do sistema
 *.log
 .DS_Store
+.baileys_auth/
