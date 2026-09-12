@@ -327,7 +327,7 @@ const Inventory = () => {
   const columns: GridColDef[] = [
     {
       field: "sku",
-      headerName: "Código",
+      headerName: "Código EAN",
       width: 130,
       minWidth: 120,
       renderCell: (params) => (
@@ -706,7 +706,7 @@ const Inventory = () => {
                   {productForLotsModal.name}
                 </p>
                 <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold mt-1 inline-block">
-                  SKU: {productForLotsModal.sku || "S/ SKU"}
+                  EAN: {productForLotsModal.sku || "S/ SKU"}
                 </span>
               </div>
 
