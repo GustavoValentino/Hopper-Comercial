@@ -836,7 +836,7 @@ const Settings = () => {
                 <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-blue-800 dark:text-blue-400 leading-relaxed font-medium">
                   Recomendamos alterar sua senha periodicamente para manter o
-                  nível de segurança do inventário alto.
+                  nível de segurança da sua conta.
                 </p>
               </div>
             )}
