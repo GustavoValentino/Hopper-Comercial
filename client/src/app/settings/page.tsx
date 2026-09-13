@@ -1028,7 +1028,11 @@ const Settings = () => {
               </button>
 
               <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-3">
-                <MessageCircle className="w-7 h-7 text-white" strokeWidth={2} />
+                <img
+                  src="/whatsapp.svg"
+                  alt="WhatsApp"
+                  className="w-7 h-7 brightness-0 invert"
+                />
               </div>
               <h3 className="text-base font-bold text-white tracking-tight">
                 Vincular WhatsApp
