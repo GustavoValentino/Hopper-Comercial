@@ -11,8 +11,16 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Hopper",
   description: "Gerenciamento Inteligente de Inventário e Validades",
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Hopper",
+  },
   icons: {
     icon: "/hopper_icon_tight.svg",
+    apple: "/hopper_icon_tight.svg",
   },
 };
 

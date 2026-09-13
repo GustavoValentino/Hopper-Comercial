@@ -48,6 +48,20 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   ];
   const isPublicPage = rotasPublicas.includes(pathname);
 
+  // ── Registro do Service Worker para PWA ────────────────────
+  useEffect(() => {
+    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((reg) =>
+          console.log("Service Worker registrado com sucesso:", reg),
+        )
+        .catch((err) =>
+          console.error("Falha ao registrar Service Worker:", err),
+        );
+    }
+  }, []);
+
   useEffect(() => {
     const baseUrl =
       process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ||
@@ -55,7 +69,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
 
     const novoSocket = io(baseUrl, {
       withCredentials: true,
-      transports: ["websocket"], // Recomendado para evitar problemas de polling em produção
+      transports: ["websocket"],
     });
 
     setSocket(novoSocket);
