@@ -20,6 +20,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/hopper_icon_tight.svg",
+    shortcut: "/hopper_icon_tight.svg",
     apple: "/hopper_icon_tight.svg",
   },
 };
