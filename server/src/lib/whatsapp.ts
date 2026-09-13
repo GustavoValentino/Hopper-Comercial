@@ -17,7 +17,12 @@ const logger = pino({ level: "silent" });
 const MIN_INTERVAL_MS = 4000;
 const MAX_PER_HOUR = 60;
 
-type FilaItem = { numero: string; mensagem: string };
+type FilaItem = {
+  numero: string;
+  mensagem: string;
+  imageUrl?: string | null;
+};
+
 const fila: FilaItem[] = [];
 let processandoFila = false;
 let envioTimestamps: number[] = [];
@@ -58,9 +63,21 @@ const processarFila = async () => {
     if (!item) continue;
 
     try {
-      await sock.sendMessage(normalizarNumero(item.numero), {
-        text: item.mensagem,
-      });
+      const jid = normalizarNumero(item.numero);
+
+      if (item.imageUrl) {
+        // Envia a imagem com o texto formatado como legenda (caption)
+        await sock.sendMessage(jid, {
+          image: { url: item.imageUrl },
+          caption: item.mensagem,
+        });
+      } else {
+        // Fallback: se não houver imagem, envia apenas o texto
+        await sock.sendMessage(jid, {
+          text: item.mensagem,
+        });
+      }
+
       envioTimestamps.push(Date.now());
     } catch (error) {
       console.error("❌ Erro ao enviar mensagem WhatsApp:", error);
@@ -75,8 +92,9 @@ const processarFila = async () => {
 export const enfileirarMensagemWhatsapp = (
   numero: string,
   mensagem: string,
+  imageUrl?: string | null,
 ) => {
-  fila.push({ numero, mensagem });
+  fila.push({ numero, mensagem, imageUrl });
   processarFila();
 };
 

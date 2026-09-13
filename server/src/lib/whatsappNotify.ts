@@ -6,6 +6,7 @@ const prisma = new PrismaClient();
 export const notificarWhatsappSeAtivo = async (
   userId: string,
   mensagem: string,
+  imageUrl?: string | null,
 ) => {
   try {
     const user = await prisma.user.findUnique({
@@ -13,7 +14,7 @@ export const notificarWhatsappSeAtivo = async (
       select: { whatsappOptIn: true, whatsappNumber: true },
     });
     if (user?.whatsappOptIn && user.whatsappNumber) {
-      enfileirarMensagemWhatsapp(user.whatsappNumber, mensagem);
+      enfileirarMensagemWhatsapp(user.whatsappNumber, mensagem, imageUrl);
     }
   } catch (error) {
     console.error("Erro ao verificar opt-in de WhatsApp:", error);

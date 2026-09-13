@@ -190,9 +190,26 @@ export async function verificarVencimentosCriticos(): Promise<void> {
 
         // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
         if (diasRestantes <= 5) {
+          const nomeUsuario = produto.user.name || "Responsável";
+          const codigoBarras = produto.sku || "Não informado";
+          const imagemProduto = produto.imageUrl;
+
+          const mensagemWhatsapp = `⚠️ *Hopper — Alerta de Validade* ⚠️
+
+Olá, *${nomeUsuario}*👋, identificamos um item crítico na loja:
+
+📦 *Produto:* ${produto.name}
+🏷️ *Código de Barras:* ${codigoBarras}
+🔢 *Lote:* ${loteIdOuNumero}
+🛒 *Setor:* ${setor}
+📅 *Status:* ${mensagemDias}
+
+Por favor, verifique a gôndola imediatamente.`;
+
           await notificarWhatsappSeAtivo(
             donoId,
-            `⚠️ *Hopper — Alerta de validade*\n\nO produto *${produto.name}* (Lote: *${loteIdOuNumero}*) no setor *${setor}* ${mensagemDias}\n\nVerifique a gôndola agora.`,
+            mensagemWhatsapp,
+            imagemProduto,
           );
         }
       }
@@ -226,21 +243,17 @@ export async function dispararVerificacaoVencimentosJob(
 
     await verificarVencimentosCriticos();
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Verificação de vencimentos executada com sucesso!",
-      });
+    res.status(200).json({
+      success: true,
+      message: "Verificação de vencimentos executada com sucesso!",
+    });
   } catch (error: any) {
     console.error("[cron-externo] Erro ao executar verificação:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: "Erro interno ao processar vencimentos",
-        details: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      error: "Erro interno ao processar vencimentos",
+      details: error.message,
+    });
   }
 }
 
