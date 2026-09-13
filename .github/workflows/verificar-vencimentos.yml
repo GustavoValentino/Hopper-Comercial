@@ -1,0 +1,28 @@
+name: Verificar Vencimentos Hopper
+
+on:
+  schedule:
+    - cron: "0 10 * * *" # 07:00 horário de Brasília (UTC-3)
+  workflow_dispatch: # permite disparar manualmente
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Acordar servidor Render
+        run: |
+          echo "Acordando servidor..."
+          curl -f --retry 5 --retry-delay 10 --retry-connrefused \
+            https://hopper-comercial.onrender.com/ping
+          echo "Servidor acordado!"
+
+      - name: Aguardar estabilização
+        run: sleep 10
+
+      - name: Disparar verificação de vencimentos
+        run: |
+          curl -f -X POST \
+            -H "x-job-secret: ${{ secrets.JOB_SECRET_TOKEN }}" \
+            https://hopper-comercial.onrender.com/api/jobs/verificar-vencimentos
+          echo "Verificação concluída!"
