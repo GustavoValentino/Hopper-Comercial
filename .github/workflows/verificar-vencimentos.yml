@@ -2,8 +2,8 @@ name: Verificar Vencimentos Hopper
 
 on:
   schedule:
-    - cron: "0 10 * * *" # 07:00 horário de Brasília (UTC-3)
-  workflow_dispatch: # permite disparar manualmente
+    - cron: "0 10 * * *"
+  workflow_dispatch:
 
 jobs:
   verificar:
@@ -12,13 +12,12 @@ jobs:
     steps:
       - name: Acordar servidor Render
         run: |
-          echo "Acordando servidor..."
           curl -f --retry 5 --retry-delay 10 --retry-connrefused \
             https://hopper-comercial.onrender.com/ping
           echo "Servidor acordado!"
 
       - name: Aguardar estabilização
-        run: sleep 10
+        run: sleep 15
 
       - name: Disparar verificação de vencimentos
         run: |
