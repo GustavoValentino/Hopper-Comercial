@@ -1,5 +1,6 @@
 name: Verificar Vencimentos Hopper
 
+# Agendamento diario as 07:00 BRT
 on:
   schedule:
     - cron: "0 10 * * *"
