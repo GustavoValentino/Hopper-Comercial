@@ -16,7 +16,7 @@ import auditRoutes from "./routes/auditRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import whatsappRoutes from "./routes/whatsappRoutes.js";
 import dns from "dns";
-// import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
+import { iniciarJobVerificacaoVencimentos } from "./jobs/verificarVencimentos.js";
 import { iniciarConexaoWhatsapp } from "./lib/whatsapp.js";
 import jobRoutes from "./routes/jobRoutes.js";
 
@@ -93,9 +93,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// Job agendado: verifica produtos críticos e dispara notificação automaticamente
-// iniciarJobVerificacaoVencimentos();
-
 const port = Number(process.env.PORT) || 3001;
 
 server.listen(port, "0.0.0.0", () => {
@@ -103,4 +100,7 @@ server.listen(port, "0.0.0.0", () => {
 
   // Inicializa a conexão do WhatsApp via Baileys assim que o servidor sobe
   iniciarConexaoWhatsapp();
+
+  // Job agendado: verifica produtos críticos e dispara notificação automaticamente
+  iniciarJobVerificacaoVencimentos();
 });
