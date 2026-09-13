@@ -7,9 +7,9 @@
   "theme_color": "#10b981",
   "icons": [
     {
-      "src": "/hopper_icon_tight.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "src": "/hopper_icon_tight01.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

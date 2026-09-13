@@ -19,9 +19,9 @@ export const metadata: Metadata = {
     title: "Hopper",
   },
   icons: {
-    icon: "/hopper_icon_tight.svg",
-    shortcut: "/hopper_icon_tight.svg",
-    apple: "/hopper_icon_tight.svg",
+    icon: "/hopper_icon_tight01.png",
+    shortcut: "/hopper_icon_tight01.png",
+    apple: "/hopper_icon_tight01.png",
   },
 };
 
