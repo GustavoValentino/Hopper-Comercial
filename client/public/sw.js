@@ -1,6 +1,6 @@
 // client/public/sw.js
 
-const VERSION = "hopper-v1";
+const VERSION = "hopper-v2"; // bump pra invalidar cache antigo com respostas opacas ruins
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -54,6 +54,15 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
+  // IMPORTANTE: só intercepta requisições do NOSSO domínio.
+  // Imagens de terceiros (S3, Cloudinary, avatares do Google) passam
+  // direto pro navegador, sem cache do SW. Isso evita servir uma
+  // resposta "opaque" (cacheada em modo no-cors) para um pedido que
+  // precisa de CORS real — como o carregamento de imagem no <canvas>
+  // usado para gerar o PDF (crossOrigin="anonymous" + toDataURL()).
+  // Misturar os dois quebra o canvas com SecurityError.
+  if (url.origin !== self.location.origin) return;
+
   // API: network-first — dado sempre fresco, cai pro cache se offline
   if (isApiRequest(url)) {
     event.respondWith(
@@ -68,7 +77,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Assets estáticos: cache-first — carregamento instantâneo
+  // Assets estáticos PRÓPRIOS: cache-first — carregamento instantâneo
   if (isStaticAsset(url)) {
     event.respondWith(
       caches.match(request).then(
