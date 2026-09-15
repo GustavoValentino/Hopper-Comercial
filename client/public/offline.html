@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hopper — Sem conexão</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #ffffff;
+        color: #0f172a;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .card {
+        text-align: center;
+        max-width: 360px;
+      }
+      .icon {
+        width: 72px;
+        height: 72px;
+        border: 5px solid #10b981;
+        border-radius: 18px;
+        margin: 0 auto 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon svg {
+        width: 32px;
+        height: 32px;
+      }
+      h1 {
+        font-size: 20px;
+        margin-bottom: 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-bottom: 24px;
+      }
+      button {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:active {
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="icon">
+        <svg viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+          <rect x="18" y="18" width="18" height="64" rx="5" fill="#10b981" />
+          <rect x="64" y="18" width="18" height="64" rx="5" fill="#10b981" />
+          <rect x="18" y="43" width="64" height="14" rx="5" fill="#10b981" />
+        </svg>
+      </div>
+      <h1>Você está offline</h1>
+      <p>
+        Não foi possível carregar essa página. Verifique sua conexão — os dados
+        já visitados continuam disponíveis.
+      </p>
+      <button onclick="location.reload()">Tentar novamente</button>
+    </div>
+  </body>
+</html>
