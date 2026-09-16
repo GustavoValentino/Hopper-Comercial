@@ -4,6 +4,7 @@ import "./globals.css";
 import DashboardWrapper from "./dashboardWrapper";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
+import InstallPrompt from "./(components)/InstallPrompt";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const inter = Inter({ subsets: ["latin"] });
@@ -44,6 +45,7 @@ export default function RootLayout({
     <html lang="pt-BR" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
         <DashboardWrapper>{children}</DashboardWrapper>
+        <InstallPrompt />
         <Toaster richColors position="top-right" />
       </body>
     </html>
