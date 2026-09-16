@@ -8,6 +8,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { updateUser } from "@/state";
 import { io, Socket } from "socket.io-client";
+import { toast } from "sonner";
 
 interface SocketContextType {
   onlineCount: number;
@@ -48,18 +49,61 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   ];
   const isPublicPage = rotasPublicas.includes(pathname);
 
+  // Mostra um toast avisando sobre uma nova versão do Service Worker,
+  // com botão para o usuário confirmar a atualização quando quiser.
+  function notificarNovaVersao(worker: ServiceWorker) {
+    toast("Nova versão do Hopper disponível", {
+      description: "Atualize para ter as últimas melhorias.",
+      duration: Infinity,
+      action: {
+        label: "Atualizar",
+        onClick: () => {
+          worker.postMessage("SKIP_WAITING");
+        },
+      },
+    });
+  }
+
   // ── Registro do Service Worker para PWA ────────────────────
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .then((reg) =>
-          console.log("Service Worker registrado com sucesso:", reg),
-        )
-        .catch((err) =>
-          console.error("Falha ao registrar Service Worker:", err),
-        );
-    }
+    if (!("serviceWorker" in navigator)) return;
+
+    let refreshing = false;
+
+    // Evita reload em loop caso o evento dispare mais de uma vez
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        console.log("Service Worker registrado com sucesso:", reg);
+
+        // Caso já exista uma versão esperando (ex: usuário reabriu a aba)
+        if (reg.waiting) {
+          notificarNovaVersao(reg.waiting);
+        }
+
+        reg.addEventListener("updatefound", () => {
+          const installingWorker = reg.installing;
+          if (!installingWorker) return;
+
+          installingWorker.addEventListener("statechange", () => {
+            // "installed" + já existe um controller ativo = é uma ATUALIZAÇÃO,
+            // não a primeira instalação (nesse caso não há nada rodando ainda)
+            if (
+              installingWorker.state === "installed" &&
+              navigator.serviceWorker.controller
+            ) {
+              notificarNovaVersao(installingWorker);
+            }
+          });
+        });
+      })
+      .catch((err) => console.error("Falha ao registrar Service Worker:", err));
   }, []);
 
   useEffect(() => {

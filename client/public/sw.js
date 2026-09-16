@@ -1,3 +1,5 @@
+ublic / sw.js;
+
 const VERSION = "hopper-v3";
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
@@ -15,7 +17,12 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE_URLS)),
   );
-  self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener("activate", (event) => {
@@ -54,7 +61,6 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // API: network-first — dado sempre fresco, cai pro cache se offline
   if (isApiRequest(url)) {
     event.respondWith(
       fetch(request)
@@ -68,7 +74,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Assets estáticos PRÓPRIOS: cache-first — carregamento instantâneo
   if (isStaticAsset(url)) {
     event.respondWith(
       caches.match(request).then(
@@ -86,7 +91,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navegação entre rotas: network-first com fallback pra página offline
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match("/offline.html")),
