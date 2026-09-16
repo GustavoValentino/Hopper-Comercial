@@ -5,6 +5,7 @@ import DashboardWrapper from "./dashboardWrapper";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import InstallPrompt from "./(components)/InstallPrompt";
+import AppleSplashScreens from "./(components)/AppleSplashScreens";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const inter = Inter({ subsets: ["latin"] });
@@ -44,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
+        <AppleSplashScreens />
         <DashboardWrapper>{children}</DashboardWrapper>
         <InstallPrompt />
         <Toaster richColors position="top-right" />
