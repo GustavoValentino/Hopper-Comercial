@@ -46,6 +46,7 @@ async function dispararPushEEmail(
   mensagemTexto: string,
   mensagemDias: string,
   setor: string,
+  badgeCount: number,
 ): Promise<void> {
   if (pushHabilitado) {
     try {
@@ -58,6 +59,10 @@ async function dispararPushEEmail(
         body: mensagemTexto,
         url: "/",
         tag: `produto-${produtoId}-lote-${loteNumero}`,
+        // Total de lotes críticos pendentes do usuário AGORA (não só este
+        // lote) — usado pelo Service Worker pra atualizar o App Badge
+        // (contador no ícone) mesmo com o app fechado.
+        badgeCount,
       });
 
       for (const sub of userSubscriptions) {
@@ -125,6 +130,32 @@ export async function verificarVencimentosCriticos(): Promise<void> {
     },
   });
 
+  // ── Contagem prévia: quantos lotes críticos cada usuário tem AGORA ──
+  // Isso vira o "badgeCount" enviado no payload do push — o número que
+  // aparece no ícone do app. Precisa ser calculado antes do loop
+  // principal porque um usuário pode ter vários lotes críticos e
+  // queremos o TOTAL, não só o lote que disparou aquele push específico.
+  const contagemCriticosPorUsuario = new Map<string, number>();
+
+  for (const produto of produtosComLotes) {
+    if (!produto.user || !produto.lotes || produto.lotes.length === 0) continue;
+    const donoId = produto.user.id;
+
+    for (const lote of produto.lotes) {
+      if (!lote.expirationDate) continue;
+      const expDate = normalizarDataUTC(lote.expirationDate);
+      const diasRestantes = Math.ceil(
+        (expDate.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (diasRestantes >= 0 && diasRestantes <= JANELA_ALERTA_DIAS) {
+        contagemCriticosPorUsuario.set(
+          donoId,
+          (contagemCriticosPorUsuario.get(donoId) || 0) + 1,
+        );
+      }
+    }
+  }
+
   let totalLotesNaJanela = 0;
 
   for (const produto of produtosComLotes) {
@@ -133,6 +164,7 @@ export async function verificarVencimentosCriticos(): Promise<void> {
     const donoId = produto.user.id;
     const setor =
       (produto as any).category || (produto as any).section || "Geral";
+    const badgeCount = contagemCriticosPorUsuario.get(donoId) || 0;
 
     for (const lote of produto.lotes) {
       if (!lote.expirationDate) continue;
@@ -186,6 +218,7 @@ export async function verificarVencimentosCriticos(): Promise<void> {
           mensagemTexto,
           mensagemDias,
           setor,
+          badgeCount,
         );
 
         // 3. WhatsApp (Ativado se faltarem 5 dias ou menos)
