@@ -50,8 +50,8 @@ const SidebarLink = ({
             : "justify-start px-4 py-3 gap-3"
         } ${
           isActive
-            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 font-bold shadow-xs border border-emerald-100/20"
-            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800/50 border border-transparent"
+            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 font-bold shadow-xs border border-emerald-100/20 dark:border-emerald-500/20"
+            : "text-gray-500 hover:text-gray-900 hover:bg-gray-50/80 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/5 border border-transparent"
         }`}
       >
         <Icon
@@ -109,9 +109,13 @@ const Sidebar = () => {
     }
   };
 
+  // Light mode: branco, como já era. Dark mode: navy escuro (#111c27,
+  // próximo ao rgb(20,32,45) usado pela UptimeRobot) + um brilho verde
+  // sutil subindo da base (usando o verde da marca #10b981), dissolvendo
+  // em transparente por volta de 65% da altura.
   const sidebarClassNames = `fixed flex flex-col ${
     isSidebarCollapsed ? "w-0 md:w-16" : "w-72 md:w-64"
-  } bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800/70 transition-all duration-300 overflow-hidden h-full z-40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]`;
+  } bg-white dark:bg-[#111c27] dark:bg-[linear-gradient(0deg,rgba(16,185,129,0.10)_0%,rgba(17,28,39,0)_65%)] border-r border-gray-100 dark:border-gray-800/70 transition-all duration-300 overflow-hidden h-full z-40 shadow-[4px_0_24px_rgba(0,0,0,0.01)]`;
 
   return (
     <aside
@@ -142,7 +146,7 @@ const Sidebar = () => {
         </div>
 
         <button
-          className="md:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="md:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-white/5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
           onClick={toggleSidebar}
           aria-expanded={!isSidebarCollapsed}
           aria-label="Alternar menu de navegação"
