@@ -246,44 +246,41 @@ const UsersPage = () => {
   const [notifyTarget, setNotifyTarget] = useState<UserRow | null>(null);
   const [notifyMessage, setNotifyMessage] = useState("");
 
-  // ── RTM Audit Logs ─────────────────────────────────────────
-  const { data: fetchedLogs, isLoading: logsLoading } = useGetAuditLogsQuery(
-    undefined,
+  // ── Auditoria: paginação server-side ────────────────────────
+  const [selectedAction, setSelectedAction] = useState("TODOS");
+  const [auditPage, setAuditPage] = useState(1);
+  const AUDIT_PAGE_SIZE = 10;
+
+  // Debounce da busca — evita 1 requisição por tecla digitada, já que
+  // agora quem filtra é o backend, não mais um .filter() no cliente.
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Qualquer mudança de filtro volta pra primeira página
+  useEffect(() => {
+    setAuditPage(1);
+  }, [debouncedSearch, selectedAction]);
+
+  const {
+    data: auditData,
+    isLoading: logsLoading,
+    isFetching: logsFetching,
+  } = useGetAuditLogsQuery(
+    {
+      page: auditPage,
+      pageSize: AUDIT_PAGE_SIZE,
+      action: selectedAction,
+      search: debouncedSearch,
+    },
     { skip: !isAdmin || activeTab !== "auditoria" },
   );
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [selectedAction, setSelectedAction] = useState("TODOS");
-  const [visibleLogsCount, setVisibleLogsCount] = useState(10);
-
-  useEffect(() => {
-    if (fetchedLogs) {
-      setAuditLogs(fetchedLogs);
-    }
-  }, [fetchedLogs]);
-
-  useEffect(() => {
-    setVisibleLogsCount(10);
-  }, [searchTerm, selectedAction]);
-
-  const filteredLogs = auditLogs.filter((log) => {
-    const operator = userList.find((u) => u.id === log.userId);
-    const operatorName =
-      operator?.name || log.user?.name || "Operador desconhecido";
-
-    const matchesSearch =
-      log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      operatorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesAction =
-      selectedAction === "TODOS" || log.action === selectedAction;
-
-    return matchesSearch && matchesAction;
-  });
-
-  const logsToRender = filteredLogs.slice(0, visibleLogsCount);
-  const hasMoreLogs = filteredLogs.length > visibleLogsCount;
+  const logsToRender = auditData?.logs ?? [];
+  const totalLogs = auditData?.total ?? 0;
+  const hasMoreLogs = totalLogs > logsToRender.length;
 
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type });
@@ -862,8 +859,8 @@ const UsersPage = () => {
                 Linha do Tempo de Ações
               </h3>
               <p className="text-[11px] text-gray-400 dark:text-gray-500 font-medium mt-0.5">
-                Exibindo {logsToRender.length} de {filteredLogs.length} logs
-                encontrados no registro master
+                Exibindo {logsToRender.length} de {totalLogs} logs encontrados
+                no registro master
               </p>
             </div>
 
@@ -906,7 +903,7 @@ const UsersPage = () => {
             </div>
           )}
 
-          {!logsLoading && filteredLogs.length === 0 && (
+          {!logsLoading && logsToRender.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400 dark:text-gray-500 gap-2">
               <Activity className="w-8 h-8 opacity-40" />
               <span className="text-xs font-bold uppercase tracking-wider">
@@ -924,7 +921,7 @@ const UsersPage = () => {
             </div>
           )}
 
-          {!logsLoading && filteredLogs.length > 0 && (
+          {!logsLoading && logsToRender.length > 0 && (
             <>
               <div className="divide-y divide-gray-100 dark:divide-gray-700/50 max-h-[520px] overflow-y-auto">
                 {logsToRender.map((log) => {
@@ -972,10 +969,15 @@ const UsersPage = () => {
               {hasMoreLogs && (
                 <div className="p-4 border-t border-gray-100 dark:border-gray-700/50 flex justify-center bg-slate-50/30 dark:bg-gray-900/10">
                   <button
-                    onClick={() => setVisibleLogsCount((prev) => prev + 10)}
-                    className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-all shadow-xs active:scale-95"
+                    onClick={() => setAuditPage((prev) => prev + 1)}
+                    disabled={logsFetching}
+                    className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-700 transition-all shadow-xs active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span>Carregar Mais Registros</span>
+                    <span>
+                      {logsFetching
+                        ? "Carregando..."
+                        : "Carregar Mais Registros"}
+                    </span>
                     <ChevronDown className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>

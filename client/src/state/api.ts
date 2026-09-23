@@ -95,6 +95,22 @@ export interface AuditLog {
   };
 }
 
+// Resposta paginada do backend para o histórico de auditoria.
+export interface AuditLogsResponse {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// Parâmetros aceitos pela busca paginada de auditoria.
+export interface GetAuditLogsParams {
+  page?: number;
+  pageSize?: number;
+  action?: string;
+  search?: string;
+}
+
 export interface UpdateUserFields {
   userId: string;
   username: string;
@@ -281,8 +297,48 @@ export const api = createApi({
       invalidatesTags: [{ type: "Notifications", id: "LIST" }],
     }),
 
-    getAuditLogs: build.query<AuditLog[], void>({
-      query: () => "/audit-logs",
+    // Paginação server-side "carregar mais": serializeQueryArgs agrupa o
+    // cache por filtro (action/search/pageSize), ignorando "page" — assim,
+    // quando a página aumenta, o merge() abaixo ACRESCENTA os novos logs
+    // ao cache existente em vez de substituir. Quando um filtro muda, o
+    // componente reseta page para 1 e o merge substitui a lista inteira.
+    getAuditLogs: build.query<AuditLogsResponse, GetAuditLogsParams | void>({
+      query: (params) => ({
+        url: "/audit-logs",
+        params: {
+          page: params?.page ?? 1,
+          pageSize: params?.pageSize ?? 10,
+          action:
+            params?.action && params.action !== "TODOS"
+              ? params.action
+              : undefined,
+          search: params?.search || undefined,
+        },
+      }),
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        const action = queryArgs?.action ?? "TODOS";
+        const search = queryArgs?.search ?? "";
+        const pageSize = queryArgs?.pageSize ?? 10;
+        return `${endpointName}-${action}-${search}-${pageSize}`;
+      },
+      merge: (currentCache, newItems, { arg }) => {
+        const page = (arg && "page" in arg ? arg.page : 1) ?? 1;
+        if (page === 1) {
+          currentCache.logs = newItems.logs;
+        } else {
+          currentCache.logs.push(...newItems.logs);
+        }
+        currentCache.total = newItems.total;
+        currentCache.page = newItems.page;
+        currentCache.pageSize = newItems.pageSize;
+      },
+      forceRefetch: ({ currentArg, previousArg }) => {
+        return (
+          currentArg?.page !== previousArg?.page ||
+          currentArg?.action !== previousArg?.action ||
+          currentArg?.search !== previousArg?.search
+        );
+      },
       providesTags: ["AuditLogs"],
     }),
 
