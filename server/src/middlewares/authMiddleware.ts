@@ -43,3 +43,28 @@ export const protegerRota = async (
       .json({ error: "Erro interno ao validar a autenticação da sessão." });
   }
 };
+
+/**
+ * Middleware de autorização — usar SEMPRE depois de protegerRota na cadeia
+ * da rota (ele depende de authReq.userRole já estar preenchido).
+ * Bloqueia o acesso de qualquer usuário que não seja "admin".
+ *
+ * Exemplo de uso:
+ *   router.get("/", protegerRota, apenasAdmin, getAuditLogs);
+ */
+export const apenasAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const authReq = req as AuthenticatedRequest;
+
+  if (authReq.userRole?.toLowerCase() !== "admin") {
+    res.status(403).json({
+      error: "Acesso negado. Esta ação requer privilégios de administrador.",
+    });
+    return;
+  }
+
+  next();
+};
