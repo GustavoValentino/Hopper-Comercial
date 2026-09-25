@@ -65,7 +65,13 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   // ── Registro do Service Worker para PWA ────────────────────
+  // IMPORTANTE: só registra em produção. Em desenvolvimento, o cache-first
+  // do sw.js entra em conflito direto com o Fast Refresh do Next.js —
+  // o SW continua servindo JS antigo em cache enquanto o Next recompila,
+  // o Next detecta a incompatibilidade e força reload, o que dispara o
+  // ciclo de novo, causando um loop infinito de refresh.
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 
     let refreshing = false;
@@ -105,6 +111,24 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
       })
       .catch((err) => console.error("Falha ao registrar Service Worker:", err));
   }, []);
+
+  // ── App Badge API: contador no ícone do app ─────────────────
+  // Mostra a quantidade de produtos críticos direto no ícone (como o
+  // badge de mensagens não lidas do WhatsApp). Só funciona com o app
+  // instalado (standalone) em navegadores compatíveis (Chrome/Edge
+  // desktop e Android, Safari iOS 16.4+); em outros, a chamada é
+  // ignorada silenciosamente — por isso o feature-detect antes.
+  useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+
+    const count = (currentUser as any)?.criticalProductsCount ?? 0;
+
+    if (count > 0) {
+      (navigator as any).setAppBadge(count).catch(() => {});
+    } else {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const baseUrl =
