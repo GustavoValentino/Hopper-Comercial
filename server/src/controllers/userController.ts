@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { v2 as cloudinary } from "cloudinary";
+import { AuthenticatedRequest } from "../middlewares/authMiddleware.js";
 
 const prisma = new PrismaClient();
 
@@ -77,8 +78,9 @@ export const getUsers = async (req: Request, res: Response) => {
 
 export const updateUserRole = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { role, adminPassword } = req.body;
+    const authReq = req as AuthenticatedRequest;
+    const { id } = authReq.params;
+    const { role, adminPassword } = authReq.body;
 
     if (!adminPassword || adminPassword !== process.env.ADMIN_USER_PASSWORD) {
       res.status(401).json({ message: "Senha de administrador inválida." });
@@ -90,7 +92,10 @@ export const updateUserRole = async (req: Request, res: Response) => {
       return;
     }
 
-    const adminId = (req as any).user?.id || id;
+    // ID do admin de verdade, vindo da sessão autenticada (protegerRota
+    // já validou isso antes de chegar aqui) — não mais do fallback quebrado
+    // que acabava registrando a VÍTIMA como autora da própria mudança.
+    const adminId = authReq.userId!;
 
     const updatedUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
@@ -119,8 +124,9 @@ export const updateUserRole = async (req: Request, res: Response) => {
 
 export const deleteUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { adminPassword } = req.body;
+    const authReq = req as AuthenticatedRequest;
+    const { id } = authReq.params;
+    const { adminPassword } = authReq.body;
 
     if (!adminPassword || adminPassword !== process.env.ADMIN_USER_PASSWORD) {
       res.status(401).json({ message: "Senha de administrador inválida." });
@@ -134,7 +140,8 @@ export const deleteUser = async (req: Request, res: Response) => {
       return;
     }
 
-    const adminId = (req as any).user?.id || id;
+    // Mesma correção: ID do admin vindo da sessão, não do fallback quebrado.
+    const adminId = authReq.userId!;
 
     await prisma.$transaction(async (tx) => {
       await tx.auditLogs.create({
@@ -163,12 +170,19 @@ export const updateUserSettings = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { userId, username, email, language, profileImageBase64 } = req.body;
+    const authReq = req as AuthenticatedRequest;
+
+    // IMPORTANTE: o ID de quem está sendo editado vem da SESSÃO
+    // autenticada, não do corpo da requisição. Antes, um "userId" no
+    // body era aceito sem checagem nenhuma — qualquer requisição podia
+    // editar nome, e-mail e avatar de QUALQUER outro usuário do sistema.
+    const userId = authReq.userId;
+    const { username, email, language, profileImageBase64 } = authReq.body;
 
     if (!userId) {
       res
-        .status(400)
-        .json({ success: false, error: "O ID do usuário é obrigatório." });
+        .status(401)
+        .json({ success: false, error: "Usuário não autenticado." });
       return;
     }
 
