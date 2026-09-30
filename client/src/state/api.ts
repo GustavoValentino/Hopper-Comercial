@@ -88,6 +88,8 @@ export interface AuditLog {
   userId: string;
   action: string;
   details: string;
+  entityType?: "PRODUCT" | "USER" | null;
+  entityId?: string | null;
   timestamp: string;
   user?: {
     name: string;

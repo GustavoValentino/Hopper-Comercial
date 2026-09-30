@@ -37,8 +37,10 @@ import {
   ChevronDown,
   CheckCircle2Icon,
   AlertTriangleIcon,
+  ExternalLink,
 } from "lucide-react";
 import React, { useState, useMemo, useEffect } from "react";
+import Link from "next/link";
 
 // ============================================================
 // TIPOS
@@ -956,6 +958,20 @@ const UsersPage = () => {
                         <p className="text-xs font-medium text-gray-600 dark:text-gray-300 mt-1.5 leading-relaxed">
                           {log.details}
                         </p>
+
+                        {/* Botão de redirecionamento para o produto quando a entidade for do tipo PRODUCT */}
+                        {log.entityType === "PRODUCT" && log.entityId && (
+                          <div className="mt-2">
+                            <Link
+                              href={`/products?search=${encodeURIComponent(log.entityId)}`}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline"
+                            >
+                              <span>Ver produto relacionado</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-1.5 mt-2 text-[10px] text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
                           <Clock className="w-3.5 h-3.5" />
                           <span>{formatTimestamp(log.timestamp)}</span>

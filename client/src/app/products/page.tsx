@@ -20,6 +20,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import Header from "@/app/(components)/Header";
 import CreateProductModal from "./CreateProductModal";
+import { useSearchParams } from "next/navigation";
 
 const ProductSkeleton = () => (
   <div className="bg-white dark:bg-gray-800 border-t-4 border-t-gray-200 dark:border-t-gray-700 rounded-xl p-5 border border-gray-100/50 dark:border-gray-700/40 animate-pulse">
@@ -38,6 +39,9 @@ const ProductSkeleton = () => (
 );
 
 const Products = () => {
+  const searchParams = useSearchParams();
+  const searchFromUrl = searchParams.get("search");
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODAS");
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
@@ -52,6 +56,24 @@ const Products = () => {
 
   const { data: allProducts, isLoading, isError } = useGetProductsQuery();
   const [createProduct] = useCreateProductMutation();
+
+  // Efeito para tratar o parâmetro da URL de forma amigável
+  useEffect(() => {
+    if (searchFromUrl && allProducts) {
+      // Verifica se o parâmetro enviado corresponde ao ID de algum produto
+      const matchedProduct = allProducts.find(
+        (p) => p.productId === searchFromUrl,
+      );
+
+      if (matchedProduct) {
+        // Se encontrou pelo ID, coloca o NOME do produto no campo de busca visualmente
+        setSearchTerm(matchedProduct.name);
+      } else {
+        // Caso contrário, usa o texto padrão da URL (ex: SKU ou nome direto)
+        setSearchTerm(searchFromUrl);
+      }
+    }
+  }, [searchFromUrl, allProducts]);
 
   // Fecha o dropdown ao clicar fora
   useEffect(() => {
@@ -73,18 +95,21 @@ const Products = () => {
     return Array.from(new Set(cats));
   }, [allProducts]);
 
-  // Lógica de filtragem combinada (Busca + Categoria)
+  // Lógica de filtragem combinada (Busca por nome, SKU, ID exato ou ID vindo da URL)
   const filteredProducts = useMemo(() => {
     if (!allProducts) return [];
     return allProducts.filter((p) => {
       const matchesSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+        p.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (searchFromUrl && p.productId === searchFromUrl);
+
       const matchesCategory =
         selectedCategory === "TODAS" || p.category === selectedCategory;
+
       return matchesSearch && matchesCategory;
     });
-  }, [allProducts, searchTerm, selectedCategory]);
+  }, [allProducts, searchTerm, selectedCategory, searchFromUrl]);
 
   useEffect(() => {
     setVisibleCount(8);
@@ -241,7 +266,6 @@ const Products = () => {
                 </span>
               );
 
-              // Analisa os lotes para determinar o status global do produto
               if (lotes.length > 0) {
                 let menorDataDiff = Infinity;
 
@@ -336,7 +360,6 @@ const Products = () => {
                         </span>
                       </div>
 
-                      {/* Listagem de todos os lotes e validades */}
                       <div className="border-t border-slate-200/60 dark:border-gray-600/50 pt-2 mt-1">
                         <span className="text-[9px] text-gray-400 dark:text-gray-400 font-bold uppercase tracking-wider block mb-1.5">
                           Lotes e Validades ({lotes.length}):
