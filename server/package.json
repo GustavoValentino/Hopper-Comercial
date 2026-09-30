@@ -16,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@better-auth/i18n": "^1.7.6",
     "@hapi/boom": "^10.0.1",
     "@prisma/client": "^5.16.2",
     "@types/bcryptjs": "^2.4.6",

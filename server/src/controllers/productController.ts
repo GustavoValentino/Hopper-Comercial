@@ -232,6 +232,8 @@ export const createProduct = async (
         userId,
         action: "Cadastro de Produto",
         details: `Cadastrou o produto ${name} (SKU: ${sku}) com ${lotesRaw.length} lote(s) no setor ${section}.`,
+        entityType: "PRODUCT",
+        entityId: product.productId,
       },
     });
 
@@ -339,6 +341,8 @@ export const updateProduct = async (
         userId,
         action: "Edição de Produto",
         details: `Editou o produto SKU: ${sku || updatedProduct.sku}.`,
+        entityType: "PRODUCT",
+        entityId: id,
       },
     });
 
@@ -381,6 +385,8 @@ export const deleteProduct = async (
         userId,
         action: "Exclusão de Produto",
         details: `Excluiu o produto ${deletedProduct.name} (SKU: ${deletedProduct.sku}).`,
+        entityType: "PRODUCT",
+        entityId: deletedProduct.productId,
       },
     });
 

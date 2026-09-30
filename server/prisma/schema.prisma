@@ -114,13 +114,16 @@ model Lote {
 }
 
 model AuditLogs {
-  logId     String   @id @default(uuid())
-  userId    String
-  action    String
-  details   String
-  timestamp DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logId      String   @id @default(uuid())
+  userId     String
+  action     String
+  details    String
+  entityType String?
+  entityId   String?
+  timestamp  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
 
 model Notification {
   id        String   @id @default(uuid())

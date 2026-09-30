@@ -44,7 +44,6 @@ export const getUsers = async (req: Request, res: Response) => {
     });
 
     const formattedUsers = users.map((user) => {
-      // Conta quantos lotes críticos o usuário possui em seus produtos
       const criticalProductsCount = user.Products.reduce(
         (acc, prod) => acc + prod.lotes.length,
         0,
@@ -92,9 +91,6 @@ export const updateUserRole = async (req: Request, res: Response) => {
       return;
     }
 
-    // ID do admin de verdade, vindo da sessão autenticada (protegerRota
-    // já validou isso antes de chegar aqui) — não mais do fallback quebrado
-    // que acabava registrando a VÍTIMA como autora da própria mudança.
     const adminId = authReq.userId!;
 
     const updatedUser = await prisma.$transaction(async (tx) => {
@@ -108,6 +104,8 @@ export const updateUserRole = async (req: Request, res: Response) => {
           userId: adminId,
           action: "UPDATE_ROLE",
           details: `Nível de acesso de "${user.name}" alterado para ${role.toUpperCase()}.`,
+          entityType: "USER",
+          entityId: user.id,
         },
       });
 
@@ -140,7 +138,6 @@ export const deleteUser = async (req: Request, res: Response) => {
       return;
     }
 
-    // Mesma correção: ID do admin vindo da sessão, não do fallback quebrado.
     const adminId = authReq.userId!;
 
     await prisma.$transaction(async (tx) => {
@@ -149,6 +146,8 @@ export const deleteUser = async (req: Request, res: Response) => {
           userId: adminId,
           action: "DELETE_USER",
           details: `O operador "${user.name}" (${user.email}) foi removido permanentemente do sistema.`,
+          entityType: "USER",
+          entityId: user.id,
         },
       });
 
@@ -171,11 +170,6 @@ export const updateUserSettings = async (
 ): Promise<void> => {
   try {
     const authReq = req as AuthenticatedRequest;
-
-    // IMPORTANTE: o ID de quem está sendo editado vem da SESSÃO
-    // autenticada, não do corpo da requisição. Antes, um "userId" no
-    // body era aceito sem checagem nenhuma — qualquer requisição podia
-    // editar nome, e-mail e avatar de QUALQUER outro usuário do sistema.
     const userId = authReq.userId;
     const { username, email, language, profileImageBase64 } = authReq.body;
 

@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { i18n, locales } from "@better-auth/i18n";
 import prisma from "../prisma.js";
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -26,6 +27,15 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
   },
+
+  // Adicionando o plugin de internacionalização com os locales padrão
+  plugins: [
+    i18n({
+      translations: locales, // Carrega todos os idiomas nativos do pacote, incluindo português
+      defaultLocale: "pt", // Define o português como padrão (ou "pt-BR", dependendo de qual chave o pacote usa)
+      detection: ["header", "cookie"],
+    }),
+  ],
 
   advanced: {
     crossSubDomainCookies: {
