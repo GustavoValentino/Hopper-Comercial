@@ -15,6 +15,7 @@ import {
   ImageIcon,
   CircleX,
   Filter,
+  X,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
@@ -60,16 +61,13 @@ const Products = () => {
   // Efeito para tratar o parâmetro da URL de forma amigável
   useEffect(() => {
     if (searchFromUrl && allProducts) {
-      // Verifica se o parâmetro enviado corresponde ao ID de algum produto
       const matchedProduct = allProducts.find(
         (p) => p.productId === searchFromUrl,
       );
 
       if (matchedProduct) {
-        // Se encontrou pelo ID, coloca o NOME do produto no campo de busca visualmente
         setSearchTerm(matchedProduct.name);
       } else {
-        // Caso contrário, usa o texto padrão da URL (ex: SKU ou nome direto)
         setSearchTerm(searchFromUrl);
       }
     }
@@ -95,7 +93,7 @@ const Products = () => {
     return Array.from(new Set(cats));
   }, [allProducts]);
 
-  // Lógica de filtragem combinada (Busca por nome, SKU, ID exato ou ID vindo da URL)
+  // Lógica de filtragem combinada
   const filteredProducts = useMemo(() => {
     if (!allProducts) return [];
     return allProducts.filter((p) => {
@@ -171,11 +169,22 @@ const Products = () => {
             <div className="relative flex-grow md:w-72 lg:w-80">
               <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
               <input
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
+                className="w-full pl-9 pr-9 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 outline-none text-xs font-medium text-gray-700 dark:text-gray-200 shadow-xs focus:border-emerald-500 dark:focus:border-emerald-500 transition-all"
                 placeholder="Buscar por nome ou código..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {/* Botão X para limpar pesquisa rapidamente */}
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer"
+                  title="Limpar pesquisa"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Botão de Filtro com Ícone Discreto e Dropdown */}
