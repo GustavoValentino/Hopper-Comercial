@@ -52,10 +52,8 @@ const CardEstoqueCritico = () => {
       };
     });
 
-    // Filtra os itens com estoque menor ou igual a 20 e pega os 4 primeiros
-    return produtosComEstoqueTotal
-      .filter((p) => p.stockQuantity <= 20)
-      .slice(0, 4);
+    // Filtra os itens com estoque menor ou igual a 20 (sem corte fixo para exibir todos)
+    return produtosComEstoqueTotal.filter((p) => p.stockQuantity <= 20);
   }, [dashboardMetrics?.popularProducts]);
 
   const handleImageError = (productId: string) => {
@@ -68,7 +66,7 @@ const CardEstoqueCritico = () => {
       className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-100/70 dark:border-gray-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.05)] hover:border-gray-200/60 dark:hover:border-gray-600/60 flex flex-col justify-between h-full"
     >
       <div>
-        <header className="flex justify-between items-start mb-5">
+        <header className="flex justify-between items-start mb-4">
           <div className="flex flex-col">
             <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight flex items-center gap-1.5">
               <AlertTriangle
@@ -88,12 +86,12 @@ const CardEstoqueCritico = () => {
               role="status"
               className="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-100/40 px-2.5 py-0.5 rounded-full animate-pulse tracking-wide uppercase"
             >
-              Ruptura
+              Ruptura ({produtosCriticos.length})
             </span>
           )}
         </header>
 
-        <div className="flex flex-col gap-4.5">
+        <div className="flex flex-col">
           {isLoading ? (
             <div
               aria-hidden="true"
@@ -127,67 +125,73 @@ const CardEstoqueCritico = () => {
               </p>
             </div>
           ) : (
-            <ul className="flex flex-col gap-4.5 m-0 p-0 list-none">
-              {produtosCriticos.map((produto) => {
-                const porcentagemEstoque = Math.min(
-                  (produto.stockQuantity / 60) * 100,
-                  100,
-                );
-                const urlImagemReal = produto.imageUrl || produto.image;
-                const hasImageError = imagensQuebradas[produto.productId];
+            /* Container com scroll vertical suave e altura máxima controlada */
+            <div className="overflow-y-auto max-h-[250px] pr-1 -mr-1 custom-scrollbar">
+              <ul className="flex flex-col gap-4.5 m-0 p-0 list-none">
+                {produtosCriticos.map((produto) => {
+                  const porcentagemEstoque = Math.min(
+                    (produto.stockQuantity / 60) * 100,
+                    100,
+                  );
+                  const urlImagemReal = produto.imageUrl || produto.image;
+                  const hasImageError = imagensQuebradas[produto.productId];
 
-                return (
-                  <li
-                    key={produto.productId}
-                    className="flex items-center gap-3 group"
-                  >
-                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700/80 bg-gray-50 dark:bg-gray-700/40 flex items-center justify-center shrink-0 shadow-xs relative transition-transform group-hover:scale-102 duration-200">
-                      {urlImagemReal && !hasImageError ? (
-                        <img
-                          src={urlImagemReal}
-                          alt={`Imagem do produto ${produto.name}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={() => handleImageError(produto.productId)}
-                        />
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className="text-[11px] font-black text-gray-400 dark:text-gray-500 font-mono tracking-wider select-none"
-                        >
-                          {obterIniciais(produto.name)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline mb-1.5">
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate pr-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors duration-150">
-                          {produto.name}
-                        </p>
-                        <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 shrink-0 font-mono bg-rose-50/60 dark:bg-rose-950/20 px-1.5 py-0.5 rounded">
-                          {produto.stockQuantity} un
-                        </span>
+                  return (
+                    <li
+                      key={produto.productId}
+                      className="flex items-center gap-3 group"
+                    >
+                      <div className="w-10 h-10 rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700/80 bg-gray-50 dark:bg-gray-700/40 flex items-center justify-center shrink-0 shadow-xs relative transition-transform group-hover:scale-102 duration-200">
+                        {urlImagemReal && !hasImageError ? (
+                          <img
+                            src={urlImagemReal}
+                            alt={`Imagem do produto ${produto.name}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onError={() => handleImageError(produto.productId)}
+                          />
+                        ) : (
+                          <span
+                            aria-hidden="true"
+                            className="text-[11px] font-black text-gray-400 dark:text-gray-500 font-mono tracking-wider select-none"
+                          >
+                            {obterIniciais(produto.name)}
+                          </span>
+                        )}
                       </div>
 
-                      <div
-                        role="progressbar"
-                        aria-label={`Nível de estoque atual: ${produto.stockQuantity} unidades`}
-                        aria-valuenow={produto.stockQuantity}
-                        aria-valuemin={0}
-                        aria-valuemax={60}
-                        className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden"
-                      >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-1.5">
+                          <p
+                            className="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate pr-2 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors duration-150"
+                            title={produto.name}
+                          >
+                            {produto.name}
+                          </p>
+                          <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 shrink-0 font-mono bg-rose-50/60 dark:bg-rose-950/20 px-1.5 py-0.5 rounded">
+                            {produto.stockQuantity} un
+                          </span>
+                        </div>
+
                         <div
-                          className="bg-gradient-to-r from-rose-500 to-amber-500 h-1.5 rounded-full transition-all duration-500"
-                          style={{ width: `${porcentagemEstoque}%` }}
-                        />
+                          role="progressbar"
+                          aria-label={`Nível de estoque atual: ${produto.stockQuantity} unidades`}
+                          aria-valuenow={produto.stockQuantity}
+                          aria-valuemin={0}
+                          aria-valuemax={60}
+                          className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 overflow-hidden"
+                        >
+                          <div
+                            className="bg-gradient-to-r from-rose-500 to-amber-500 h-1.5 rounded-full transition-all duration-500"
+                            style={{ width: `${porcentagemEstoque}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       </div>
