@@ -127,6 +127,11 @@ const Dashboard = () => {
   const [imagensComErro, setImagensComErro] = useState<Set<string>>(new Set());
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Estado para armazenar as chaves dos lotes selecionados na prévia do PDF
+  const [idsSelecionados, setIdsSelecionados] = useState<Set<string>>(
+    new Set(),
+  );
+
   const marcarErroImagem = (id: string) =>
     setImagensComErro((prev) => new Set(prev).add(id));
 
@@ -246,6 +251,22 @@ const Dashboard = () => {
     return itensProcessados;
   }, [produtos, filtroExportacao, filtroCategoriaExportacao]);
 
+  // Sempre que os filtros mudarem, seleciona automaticamente todos os lotes resultantes por padrão
+  useEffect(() => {
+    const todosIds = obterLotesFiltrados.map(
+      (item, idx) => `${item.productId}-${item.loteAtualId || idx}`,
+    );
+    setIdsSelecionados(new Set(todosIds));
+  }, [obterLotesFiltrados]);
+
+  // Lista definitiva de itens que entram no relatório PDF com base nos checkboxes marcados
+  const itensParaExportar = useMemo(() => {
+    return obterLotesFiltrados.filter((item, idx) => {
+      const chave = `${item.productId}-${item.loteAtualId || idx}`;
+      return idsSelecionados.has(chave);
+    });
+  }, [obterLotesFiltrados, idsSelecionados]);
+
   const produtosParaVisualizar = obterLotesFiltrados.slice(0, 5);
   const userName = user?.name || user?.email?.split("@")[0] || "Operador";
 
@@ -292,9 +313,9 @@ const Dashboard = () => {
   }, [produtos]);
 
   const handleConfirmarExportacao = async () => {
-    if (obterLotesFiltrados.length === 0) {
+    if (itensParaExportar.length === 0) {
       alert(
-        "Não há registros correspondentes aos filtros selecionados para exportação.",
+        "Nenhum lote foi selecionado para exportação. Marque ao menos um item na lista.",
       );
       return;
     }
@@ -357,7 +378,7 @@ const Dashboard = () => {
     doc.setFontSize(8.5);
     doc.setTextColor(100, 100, 100);
     doc.text(
-      `Escopo de Status: ${filtroExportacao.toUpperCase()} | Categoria: ${filtroCategoriaExportacao.toUpperCase()}`,
+      `Escopo de Status: ${filtroExportacao.toUpperCase()} | Categoria: ${filtroCategoriaExportacao.toUpperCase()} (${itensParaExportar.length} itens selecionados)`,
       14,
       53,
     );
@@ -373,7 +394,7 @@ const Dashboard = () => {
 
     const imagensBase64: Record<string, string | null> = {};
     await Promise.all(
-      obterLotesFiltrados.map(async (p) => {
+      itensParaExportar.map(async (p) => {
         if (p.imageUrl && !imagensBase64[p.productId]) {
           try {
             imagensBase64[p.productId] = await carregarImagemBase64(p.imageUrl);
@@ -394,7 +415,7 @@ const Dashboard = () => {
       "Validade",
     ];
 
-    const linhasTabela = obterLotesFiltrados.map((p) => {
+    const linhasTabela = itensParaExportar.map((p) => {
       const pesoFormatado = formatarPesoMetrico(p.weight, p.unit);
       return [
         "",
@@ -434,7 +455,7 @@ const Dashboard = () => {
       margin: { top: 68, right: 14, bottom: 22, left: 14 },
       didDrawCell: (data) => {
         if (data.section === "body" && data.column.index === 0) {
-          const item = obterLotesFiltrados[data.row.index];
+          const item = itensParaExportar[data.row.index];
           const imgBase64 = item ? imagensBase64[item.productId] : null;
 
           if (imgBase64) {
@@ -527,7 +548,6 @@ const Dashboard = () => {
                       : "produtos identificados"}
                   </p>
 
-                  {/* Removido o .slice(0, 4) e adicionado scroll vertical para exibir TODOS */}
                   <div className="flex flex-col gap-2 overflow-y-auto max-h-[220px] pr-1 -mr-1 custom-scrollbar">
                     {produtosParaRebaixa.map(({ produto, dias }) => {
                       const urgencia = getUrgenciaLabel(dias);
@@ -736,11 +756,10 @@ const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Bloco de Prévia Estruturado e Sofisticado */}
                 <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-gray-800/20">
                   <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
                     <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                      Prévia dos Produtos Filtrados
+                      {idsSelecionados.size} produtos selecionados
                     </span>
                     <span
                       className="text-[10px] font-bold text-[#006938] dark:text-green-400 bg-green-50 dark:bg-green-950/30 px-2 py-0.5 rounded-full"
@@ -753,11 +772,33 @@ const Dashboard = () => {
                     </span>
                   </div>
 
-                  {/* Adicionado overflow-y-auto para permitir rolar e ver todos os lotes */}
                   <div className="overflow-x-auto overflow-y-auto max-h-[240px] custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[620px]">
+                    <table className="w-full text-left border-collapse min-w-[680px]">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/80 dark:bg-gray-900/40 sticky top-0 z-10">
+                          <th className="py-2.5 px-3 w-[35px] text-center">
+                            <input
+                              type="checkbox"
+                              checked={
+                                idsSelecionados.size ===
+                                  obterLotesFiltrados.length &&
+                                obterLotesFiltrados.length > 0
+                              }
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const todosIds = obterLotesFiltrados.map(
+                                    (item, idx) =>
+                                      `${item.productId}-${item.loteAtualId || idx}`,
+                                  );
+                                  setIdsSelecionados(new Set(todosIds));
+                                } else {
+                                  setIdsSelecionados(new Set());
+                                }
+                              }}
+                              className="rounded border-gray-300 text-[#006938] focus:ring-[#006938] accent-[#006938] cursor-pointer"
+                              title="Marcar/Desmarcar todos"
+                            />
+                          </th>
                           <th className="py-2.5 px-3 w-[35px] text-center">
                             Foto
                           </th>
@@ -770,14 +811,36 @@ const Dashboard = () => {
                       </thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
                         {obterLotesFiltrados.map((item, index) => {
+                          const chave = `${item.productId}-${item.loteAtualId || index}`;
+                          const estaMarcado = idsSelecionados.has(chave);
                           const semImagem =
-                            !item.imageUrl ||
-                            imagensComErro.has(`${item.productId}-${index}`);
+                            !item.imageUrl || imagensComErro.has(chave);
+
                           return (
                             <tr
-                              key={`${item.productId}-${item.loteAtualId || index}`}
-                              className="hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors"
+                              key={chave}
+                              className={`hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors ${
+                                !estaMarcado
+                                  ? "opacity-40 bg-gray-50/50 dark:bg-gray-900/20"
+                                  : ""
+                              }`}
                             >
+                              <td className="py-2 px-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={estaMarcado}
+                                  onChange={() => {
+                                    const novoSet = new Set(idsSelecionados);
+                                    if (novoSet.has(chave)) {
+                                      novoSet.delete(chave);
+                                    } else {
+                                      novoSet.add(chave);
+                                    }
+                                    setIdsSelecionados(novoSet);
+                                  }}
+                                  className="rounded border-gray-300 text-[#006938] focus:ring-[#006938] accent-[#006938] cursor-pointer"
+                                />
+                              </td>
                               <td className="py-2 px-3 text-center">
                                 <div className="w-8 h-8 rounded-md overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mx-auto flex items-center justify-center">
                                   {!semImagem ? (
@@ -788,9 +851,7 @@ const Dashboard = () => {
                                       className="w-full h-full object-cover"
                                       onError={() =>
                                         setImagensComErro((prev) =>
-                                          new Set(prev).add(
-                                            `${item.productId}-${index}`,
-                                          ),
+                                          new Set(prev).add(chave),
                                         )
                                       }
                                     />
