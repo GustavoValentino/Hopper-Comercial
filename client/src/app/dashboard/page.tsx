@@ -753,98 +753,70 @@ const Dashboard = () => {
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto max-h-[220px] custom-scrollbar">
+                  {/* Adicionado overflow-y-auto para permitir rolar e ver todos os lotes */}
+                  <div className="overflow-x-auto overflow-y-auto max-h-[240px] custom-scrollbar">
                     <table className="w-full text-left border-collapse min-w-[620px]">
                       <thead>
-                        <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/80 dark:bg-gray-900/40">
-                          <th className="py-2.5 px-3 w-[35%]">Produto</th>
-                          <th className="py-2.5 px-3 w-[22%]">Cód. Barras</th>
-                          <th className="py-2.5 px-3 w-[15%]">Lote</th>
-                          <th className="py-2.5 px-3 w-[13%]">Qtd</th>
-                          <th className="py-2.5 px-3 w-[15%]">Validade</th>
+                        <tr className="border-b border-gray-100 dark:border-gray-800 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider bg-gray-50/80 dark:bg-gray-900/40 sticky top-0 z-10">
+                          <th className="py-2.5 px-3 w-[35px] text-center">
+                            Foto
+                          </th>
+                          <th className="py-2.5 px-3">Produto</th>
+                          <th className="py-2.5 px-3">Código</th>
+                          <th className="py-2.5 px-3">Lote</th>
+                          <th className="py-2.5 px-3">Qtd</th>
+                          <th className="py-2.5 px-3">Validade</th>
                         </tr>
                       </thead>
-                      <tbody className="text-xs text-gray-700 dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-800/50">
-                        {produtosParaVisualizar.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={5}
-                              className="py-6 text-center text-gray-400 dark:text-gray-500 italic text-xs"
-                            >
-                              Nenhum lote corresponde aos filtros selecionados.
-                            </td>
-                          </tr>
-                        ) : (
-                          produtosParaVisualizar.map((p, index) => (
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-800 text-xs">
+                        {obterLotesFiltrados.map((item, index) => {
+                          const semImagem =
+                            !item.imageUrl ||
+                            imagensComErro.has(`${item.productId}-${index}`);
+                          return (
                             <tr
-                              key={`${p.productId}-${p.loteAtualId || index}`}
-                              className="hover:bg-gray-100/60 dark:hover:bg-gray-800/30 transition-colors"
+                              key={`${item.productId}-${item.loteAtualId || index}`}
+                              className="hover:bg-gray-100/50 dark:hover:bg-gray-800/40 transition-colors"
                             >
-                              {/* Coluna Produto */}
-                              <td className="py-2.5 px-3">
-                                <div className="flex items-center gap-2.5">
-                                  <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-2xs shrink-0 flex items-center justify-center">
-                                    {p.imageUrl ? (
-                                      <img
-                                        src={p.imageUrl}
-                                        alt={`Foto de ${p.name}`}
-                                        className="w-full h-full object-cover"
-                                        loading="lazy"
-                                      />
-                                    ) : (
-                                      <PackageIcon className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p
-                                      className="font-bold text-gray-800 dark:text-gray-200 truncate text-xs leading-snug"
-                                      title={p.name}
-                                    >
-                                      {p.name}
-                                    </p>
-                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
-                                      {formatarPesoMetrico(p.weight, p.unit)}
-                                    </p>
-                                  </div>
+                              <td className="py-2 px-3 text-center">
+                                <div className="w-8 h-8 rounded-md overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mx-auto flex items-center justify-center">
+                                  {!semImagem ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={item.imageUrl}
+                                      alt={item.name}
+                                      className="w-full h-full object-cover"
+                                      onError={() =>
+                                        setImagensComErro((prev) =>
+                                          new Set(prev).add(
+                                            `${item.productId}-${index}`,
+                                          ),
+                                        )
+                                      }
+                                    />
+                                  ) : (
+                                    <ImageOff className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" />
+                                  )}
                                 </div>
                               </td>
-
-                              {/* Coluna Código de Barras */}
-                              <td className="py-2.5 px-3">
-                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200/50 dark:border-gray-700/50 max-w-full">
-                                  <Barcode className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                  <span className="font-mono text-[11px] font-medium text-gray-600 dark:text-gray-300 truncate">
-                                    {p.barcode || p.sku || "—"}
-                                  </span>
-                                </div>
+                              <td className="py-2 px-3 font-bold text-gray-800 dark:text-gray-100 truncate max-w-[180px]">
+                                {item.name}
                               </td>
-
-                              {/* Coluna Lote */}
-                              <td className="py-2.5 px-3">
-                                <span className="font-mono text-[11px] font-semibold text-gray-600 dark:text-gray-300 bg-gray-100/50 dark:bg-gray-800/40 px-2 py-0.5 rounded">
-                                  {p.lotNumber || "—"}
-                                </span>
+                              <td className="py-2 px-3 font-mono text-[11px] text-gray-500 dark:text-gray-400">
+                                {item.barcode || item.sku || "—"}
                               </td>
-
-                              {/* Coluna Quantidade */}
-                              <td className="py-2.5 px-3">
-                                <span className="font-bold text-gray-800 dark:text-gray-200 text-xs">
-                                  {p.stockQuantity}{" "}
-                                  <span className="text-[10px] font-normal text-gray-400">
-                                    un
-                                  </span>
-                                </span>
+                              <td className="py-2 px-3 text-gray-600 dark:text-gray-300">
+                                {item.lotNumber}
                               </td>
-
-                              {/* Coluna Validade */}
-                              <td className="py-2.5 px-3">
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                  {formatarDataTabela(p.expirationDate || "")}
-                                </span>
+                              <td className="py-2 px-3 font-bold text-gray-700 dark:text-gray-200">
+                                {item.stockQuantity} un
+                              </td>
+                              <td className="py-2 px-3 font-semibold text-amber-600 dark:text-amber-400">
+                                {formatarDataTabela(item.expirationDate)}
                               </td>
                             </tr>
-                          ))
-                        )}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
