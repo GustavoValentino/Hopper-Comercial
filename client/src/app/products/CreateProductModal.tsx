@@ -24,7 +24,6 @@ import {
   ScaleIcon,
   CalendarIcon,
   CheckCircle2,
-  AlertCircle,
   ChevronDown,
   X,
   ImagePlus,
@@ -34,6 +33,9 @@ import {
   Plus,
   FileText,
   Sparkles,
+  Camera,
+  FolderOpen,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export type LoteFormData = {
@@ -134,7 +136,12 @@ const CreateProductModal = ({
   const [newImageBase64, setNewImageBase64] = useState<string | null>(null);
   const editorRef = useRef<React.ElementRef<typeof AvatarEditor>>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [isImageRemoved, setIsImageRemoved] = useState(false);
+
+  // Estado para o Menu Sofisticado de Opções de Imagem (Galeria vs Câmera Nativa/Modal)
+  const [isImageMenuOpen, setIsImageMenuOpen] = useState(false);
+  const imageMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialData) {
@@ -211,6 +218,7 @@ const CreateProductModal = ({
     setIsCropOpen(false);
     setScale(1.2);
     setIsImageRemoved(false);
+    setIsImageMenuOpen(false);
   }, [initialData, isOpen]);
 
   useEffect(() => {
@@ -220,6 +228,12 @@ const CreateProductModal = ({
         !dropdownRef.current.contains(event.target as Node)
       ) {
         setIsSelectAberto(false);
+      }
+      if (
+        imageMenuRef.current &&
+        !imageMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsImageMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -365,6 +379,7 @@ const CreateProductModal = ({
     setScale(1.2);
     setIsCropOpen(true);
     e.target.value = "";
+    setIsImageMenuOpen(false);
   };
 
   const handleRemoverImagem = () => {
@@ -457,8 +472,11 @@ const CreateProductModal = ({
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Bloco 1: Identificação Principal & Foto (Grid Compacto) */}
             <div className="bg-gray-50/60 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-200/60 dark:border-gray-700/60 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-              {/* Foto do Produto (Compacta) */}
-              <div className="sm:col-span-3 flex sm:flex-col items-center gap-3 sm:gap-2">
+              {/* Foto do Produto (Compacta com Menu Sofisticado) */}
+              <div
+                className="sm:col-span-3 flex sm:flex-col items-center gap-3 sm:gap-2 relative"
+                ref={imageMenuRef}
+              >
                 <div className="relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-center shadow-xs group">
                   {imagePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -475,8 +493,8 @@ const CreateProductModal = ({
                   {!imagePreview ? (
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                      onClick={() => setIsImageMenuOpen(!isImageMenuOpen)}
+                      className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-950/70 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
                       <ImagePlus className="w-3.5 h-3.5" />
                       Adicionar Foto
@@ -485,13 +503,15 @@ const CreateProductModal = ({
                     <button
                       type="button"
                       onClick={handleRemoverImagem}
-                      className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5"
+                      className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 px-2.5 py-1.5 rounded-md transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       Excluir Foto
                     </button>
                   )}
                 </div>
+
+                {/* Input oculto para Galeria / Gerenciador de Arquivos */}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -499,6 +519,51 @@ const CreateProductModal = ({
                   onChange={handleSelecionarImagem}
                   className="hidden"
                 />
+
+                {/* Input oculto exclusivo para Câmera Nativa do Dispositivo */}
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleSelecionarImagem}
+                  className="hidden"
+                />
+
+                {/* MENU FLUTUANTE SOFISTICADO DE ESCOLHA DE FOTO */}
+                {isImageMenuOpen && (
+                  <div className="absolute top-[85%] sm:top-[100%] left-0 sm:left-1/2 sm:-translate-x-1/2 mt-2 w-52 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1.5 text-[9px] font-black tracking-widest text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700/60 mb-1">
+                      Escolher Imagem
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsImageMenuOpen(false);
+                        cameraInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer group/opt"
+                    >
+                      <div className="p-1 rounded-md bg-emerald-50 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 group-hover/opt:scale-110 transition-transform">
+                        <Camera className="w-3.5 h-3.5" />
+                      </div>
+                      <span>Câmera</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsImageMenuOpen(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer group/opt"
+                    >
+                      <div className="p-1 rounded-md bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 group-hover/opt:scale-110 transition-transform">
+                        <FolderOpen className="w-3.5 h-3.5" />
+                      </div>
+                      <span>Arquivos</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* SKU e Nome */}
@@ -807,6 +872,7 @@ const CreateProductModal = ({
                 </div>
               </div>
             </div>
+
             {/* Bloco 4: Observações Opcionais (Compacto) */}
             <div>
               <label htmlFor="note" className={labelCssStyles}>
