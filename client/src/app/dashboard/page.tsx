@@ -520,69 +520,68 @@ const Dashboard = () => {
                 </div>
               ) : produtosParaRebaixa.length > 0 ? (
                 <>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2">
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2 font-medium">
                     {produtosParaRebaixa.length}{" "}
                     {produtosParaRebaixa.length === 1
                       ? "produto identificado"
                       : "produtos identificados"}
                   </p>
 
-                  <div className="flex flex-col gap-2 overflow-y-auto max-h-[170px] pr-1 -mr-1">
-                    {produtosParaRebaixa
-                      .slice(0, 4)
-                      .map(({ produto, dias }) => {
-                        const urgencia = getUrgenciaLabel(dias);
-                        const semImagem =
-                          !produto.imageUrl ||
-                          imagensComErro.has(produto.productId);
+                  {/* Removido o .slice(0, 4) e adicionado scroll vertical para exibir TODOS */}
+                  <div className="flex flex-col gap-2 overflow-y-auto max-h-[220px] pr-1 -mr-1 custom-scrollbar">
+                    {produtosParaRebaixa.map(({ produto, dias }) => {
+                      const urgencia = getUrgenciaLabel(dias);
+                      const semImagem =
+                        !produto.imageUrl ||
+                        imagensComErro.has(produto.productId);
 
-                        return (
-                          <div
-                            key={produto.productId}
-                            className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/40 rounded-xl p-2"
-                          >
-                            <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
-                              {!semImagem ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={produto.imageUrl!}
-                                  alt={produto.name}
-                                  className="w-full h-full object-cover"
-                                  onError={() =>
-                                    marcarErroImagem(produto.productId)
-                                  }
-                                />
-                              ) : (
-                                <ImageOff
-                                  className="w-4 h-4 text-gray-300 dark:text-gray-600"
-                                  aria-hidden="true"
-                                />
+                      return (
+                        <div
+                          key={produto.productId}
+                          className="flex items-center gap-3 bg-gray-50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700/40 rounded-xl p-2 shrink-0"
+                        >
+                          <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+                            {!semImagem ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={produto.imageUrl!}
+                                alt={produto.name}
+                                className="w-full h-full object-cover"
+                                onError={() =>
+                                  marcarErroImagem(produto.productId)
+                                }
+                              />
+                            ) : (
+                              <ImageOff
+                                className="w-4 h-4 text-gray-300 dark:text-gray-600"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate"
+                              title={produto.name}
+                            >
+                              {produto.name}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <span
+                                className={`inline-block text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                              >
+                                {urgencia.texto}
+                              </span>
+                              {produto.category && (
+                                <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">
+                                  · {produto.category}
+                                </span>
                               )}
                             </div>
-
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate"
-                                title={produto.name}
-                              >
-                                {produto.name}
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span
-                                  className={`inline-block text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
-                                >
-                                  {urgencia.texto}
-                                </span>
-                                {produto.category && (
-                                  <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">
-                                    · {produto.category}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               ) : (
