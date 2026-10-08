@@ -6,7 +6,7 @@ import {
   useUpdateProductMutation,
 } from "@/state/api";
 import Header from "@/app/(components)/Header";
-import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import { DataGrid, GridColDef, GridRowSelectionModel } from "@mui/x-data-grid";
 import { ptBR } from "@mui/x-data-grid/locales";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ import {
   X,
   PackageIcon,
   FileTextIcon,
+  CheckSquare,
 } from "lucide-react";
 
 import {
@@ -51,6 +52,10 @@ const Inventory = () => {
   const [productForLotsModal, setProductForLotsModal] = useState<any>(null);
   const [productForNoteModal, setProductForNoteModal] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // 1. Estado para armazenar os IDs das linhas selecionadas
+  const [rowSelectionModel, setRowSelectionModel] =
+    useState<GridRowSelectionModel>([]);
 
   const filteredProducts = (products || []).filter((p) => {
     const nameMatch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -152,6 +157,17 @@ const Inventory = () => {
       return;
     }
 
+    // 2. Lógica para filtrar apenas os produtos selecionados (se houver algum)
+    const produtosParaImprimir =
+      rowSelectionModel.length > 0
+        ? products.filter((p) => rowSelectionModel.includes(p.productId))
+        : products;
+
+    if (produtosParaImprimir.length === 0) {
+      toast.error("Nenhum produto encontrado para impressão.");
+      return;
+    }
+
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -222,12 +238,24 @@ const Inventory = () => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(cinzaEscuro[0], cinzaEscuro[1], cinzaEscuro[2]);
-    doc.text("Relatório Completo de Inventário", 14, 48);
+
+    // Título dinâmico dependendo da seleção
+    doc.text(
+      rowSelectionModel.length > 0
+        ? "Relatório de Inventário (Itens Selecionados)"
+        : "Relatório Completo de Inventário",
+      14,
+      48,
+    );
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Total de Itens Cadastrados: ${products.length} produtos`, 14, 54);
+    doc.text(
+      `Total de Itens no Relatório: ${produtosParaImprimir.length} produtos`,
+      14,
+      54,
+    );
 
     const dataEmissao = `${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
     doc.setFont("helvetica", "normal");
@@ -247,9 +275,11 @@ const Inventory = () => {
       "Observação",
       "Peso/Vol.",
       "Estoque",
-      "Lotes",
+      "Validade",
     ];
-    const linhasTabela = products.map((p) => {
+
+    // Usamos os produtos filtrados para as linhas
+    const linhasTabela = produtosParaImprimir.map((p) => {
       const qtdTotal = (p.lotes || []).reduce(
         (acc: number, l: any) => acc + (l.stockQuantity || 0),
         0,
@@ -525,7 +555,8 @@ const Inventory = () => {
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <PrinterIcon className="w-4 h-4" />
-            Imprimir (PDF)
+            Imprimir (PDF){" "}
+            {rowSelectionModel.length > 0 && `(${rowSelectionModel.length})`}
           </button>
         </div>
       </div>
@@ -542,10 +573,19 @@ const Inventory = () => {
               className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 transition-all font-medium"
             />
           </div>
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
-            Mostrando {filteredProducts.length} de {(products || []).length}{" "}
-            produtos
-          </span>
+          <div className="flex items-center gap-3">
+            {/* Indicador de itens selecionados */}
+            {rowSelectionModel.length > 0 && (
+              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100/50 px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                <CheckSquare className="w-3 h-3" /> {rowSelectionModel.length}{" "}
+                selecionados
+              </span>
+            )}
+            <span className="text-xs text-gray-400 dark:text-gray-500 font-bold uppercase tracking-wider">
+              Mostrando {filteredProducts.length} de {(products || []).length}{" "}
+              produtos
+            </span>
+          </div>
         </div>
 
         <div className="w-full h-[520px] overflow-hidden [&_.MuiDataGrid-scrollbarFiller--header]:bg-gray-50 [&_.MuiDataGrid-scrollbarFiller--header]:dark:bg-gray-800 [&_.MuiDataGrid-scrollbarFiller--header]:border-b [&_.MuiDataGrid-scrollbarFiller--header]:border-gray-100 [&_.MuiDataGrid-scrollbarFiller--header]:dark:border-gray-700">
@@ -556,6 +596,11 @@ const Inventory = () => {
             checkboxSelection
             disableRowSelectionOnClick
             rowHeight={52}
+            /* Conectando o DataGrid ao Estado de Seleção */
+            onRowSelectionModelChange={(newSelection) => {
+              setRowSelectionModel(newSelection);
+            }}
+            rowSelectionModel={rowSelectionModel}
             localeText={ptBR.components.MuiDataGrid.defaultProps.localeText}
             sx={{
               border: "none",
@@ -609,7 +654,16 @@ const Inventory = () => {
               ".dark & .MuiTablePagination-actions .MuiButtonBase-root": {
                 color: "#9ca3af !important",
               },
-              "& .MuiCheckbox-root": { color: "#10b981 !important" },
+
+              "& .MuiCheckbox-root .MuiSvgIcon-root": {
+                color: "#9ca3af !important",
+              },
+              "& .MuiCheckbox-root.Mui-checked .MuiSvgIcon-root": {
+                color: "#006938 !important",
+              },
+              ".dark & .MuiCheckbox-root.Mui-checked .MuiSvgIcon-root": {
+                color: "#10b981 !important",
+              },
             }}
           />
         </div>
