@@ -555,8 +555,7 @@ const Inventory = () => {
             className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-[#006938] text-white hover:bg-[#00522c] rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <PrinterIcon className="w-4 h-4" />
-            Imprimir (PDF){" "}
-            {rowSelectionModel.length > 0 && `(${rowSelectionModel.length})`}
+            Imprimir (PDF)
           </button>
         </div>
       </div>
@@ -564,14 +563,24 @@ const Inventory = () => {
       <div className="bg-white dark:bg-gray-800 shadow-[0_8px_30px_rgb(0,0,0,0.02)] rounded-xl border border-gray-100 dark:border-gray-700/60 overflow-hidden transition-all">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-gray-900/10">
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por nome ou código de barras..."
-              className="w-full pl-9 pr-4 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 transition-all font-medium"
+              className="w-full pl-9 pr-9 py-2 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-200 focus:outline-none focus:border-emerald-500 transition-all font-medium"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {/* Indicador de itens selecionados */}
