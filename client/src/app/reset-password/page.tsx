@@ -4,6 +4,7 @@ import React, { useState, FormEvent, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -67,10 +68,20 @@ function ResetPasswordForm() {
 
   return (
     <div className="w-full max-w-md bg-white dark:bg-gray-800 shadow-[0_4px_20px_rgb(0,0,0,0.02)] border border-gray-100 dark:border-gray-700/60 rounded-2xl p-8 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-gray-100">
-          Inventary Comercial
-        </h1>
+      <div className="text-center space-y-3">
+        <div className="flex items-center justify-center gap-2.5">
+          <Image
+            src="https://res.cloudinary.com/rz9e24ny/image/upload/v1783305928/hopper_icon_tight_hvpesz.svg"
+            alt="Logotipo da Hopper"
+            width={36}
+            height={36}
+            className="shrink-0 object-contain"
+            unoptimized
+          />
+          <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+            Hopper
+          </h1>
+        </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Criar Nova Senha de Acesso
         </p>
