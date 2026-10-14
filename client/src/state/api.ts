@@ -127,7 +127,7 @@ export interface ProductLookupResult {
   unit: "KG" | "ML_G";
   brand: string | null;
   imageBase64: string | null;
-  source: "cosmos" | "openfoodfacts";
+  source: "oscbr" | "openfoodfacts";
 }
 
 export interface WhatsappStatus {
