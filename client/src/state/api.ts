@@ -296,14 +296,27 @@ export const api = createApi({
 
     deleteNotification: build.mutation<any, { id: string }>({
       query: ({ id }) => ({ url: `/notifications/${id}`, method: "DELETE" }),
+      // Update Otimista: remove o item da lista no cache do Redux antes da resposta do servidor
+      async onQueryStarted({ id }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          api.util.updateQueryData(
+            "getNotifications",
+            undefined,
+            (draft: any) => {
+              const index = draft.findIndex((n: any) => n.id === id);
+              if (index !== -1) draft.splice(index, 1);
+            },
+          ),
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo(); // Desfaz se a exclusão falhar no servidor
+        }
+      },
       invalidatesTags: [{ type: "Notifications", id: "LIST" }],
     }),
 
-    // Paginação server-side "carregar mais": serializeQueryArgs agrupa o
-    // cache por filtro (action/search/pageSize), ignorando "page" — assim,
-    // quando a página aumenta, o merge() abaixo ACRESCENTA os novos logs
-    // ao cache existente em vez de substituir. Quando um filtro muda, o
-    // componente reseta page para 1 e o merge substitui a lista inteira.
     getAuditLogs: build.query<AuditLogsResponse, GetAuditLogsParams | void>({
       query: (params) => ({
         url: "/audit-logs",

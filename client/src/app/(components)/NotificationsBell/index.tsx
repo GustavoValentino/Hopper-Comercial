@@ -25,26 +25,13 @@ import {
   MessageSquare,
   X,
   ImageOff,
+  Loader2,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────────
 
-/**
- * Extensão local do tipo de notificação vindo da API. O backend agora
- * também retorna os dados do produto relacionado (foto, setor e dias
- * restantes até o vencimento). Se o tipo `Notification` em
- * `@/state/api` ainda não tiver esse campo, adicione-o lá para ter
- * tipagem completa de ponta a ponta:
- *
- *   product?: {
- *     name: string;
- *     imageUrl: string | null;
- *     section: string;
- *     diasRestantes: number | null;
- *   } | null;
- */
 type NotificationComProduto = ApiNotification & {
   product?: {
     name: string;
@@ -77,9 +64,6 @@ const formatRelativeTime = (isoString: string) => {
   });
 };
 
-/** Agrupa pelo dia do calendário local do dispositivo — adequado aqui,
- * já que é só para organizar visualmente o feed pela percepção de tempo
- * de quem está olhando, e não uma regra de negócio como o vencimento. */
 const getGrupoData = (isoString: string): "Hoje" | "Ontem" | "Mais antigas" => {
   const data = new Date(isoString);
   const hoje = new Date();
@@ -202,6 +186,7 @@ const AvatarNotificacao = ({ item }: { item: NotificationComProduto }) => {
 const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [aba, setAba] = useState<FiltroAba>("todas");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -233,7 +218,6 @@ const NotificationBell = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Trava o scroll do body quando o sheet mobile está aberto
   useEffect(() => {
     if (isOpen) {
       const original = document.body.style.overflow;
@@ -249,7 +233,6 @@ const NotificationBell = () => {
     (n) => n.type === "CRITICAL_EXPIRY" && !n.isRead,
   ).length;
 
-  // Pequeno "pulso" no sino quando a contagem de não lidas aumenta
   const [pulsar, setPulsar] = useState(false);
   const contagemAnterior = useRef(unreadCount);
   useEffect(() => {
@@ -284,9 +267,12 @@ const NotificationBell = () => {
     async (id: string, e: React.MouseEvent<HTMLButtonElement>) => {
       e.stopPropagation();
       try {
+        setDeletingId(id);
         await deleteNotification({ id }).unwrap();
       } catch (error) {
         console.error("Erro ao excluir notificação:", error);
+      } finally {
+        setDeletingId(null);
       }
     },
     [deleteNotification],
@@ -342,7 +328,6 @@ const NotificationBell = () => {
 
       {isOpen && (
         <>
-          {/* Backdrop — some no desktop, escurece no mobile (comportamento de bottom sheet) */}
           <div
             className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"
             onClick={() => setIsOpen(false)}
@@ -361,12 +346,10 @@ const NotificationBell = () => {
               origin-bottom sm:origin-top-right
               animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-top-2 duration-200"
           >
-            {/* Alça de arrastar (só mobile) */}
             <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
               <div className="w-9 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
             </div>
 
-            {/* Cabeçalho */}
             <div className="px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 shrink-0">
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
@@ -398,7 +381,6 @@ const NotificationBell = () => {
               </div>
             </div>
 
-            {/* Abas de filtro */}
             <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/60 shrink-0 overflow-x-auto">
               {abas.map((tab) => (
                 <button
@@ -426,7 +408,6 @@ const NotificationBell = () => {
               ))}
             </div>
 
-            {/* Lista */}
             <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800/60">
               {isLoading && (
                 <div>
@@ -465,6 +446,8 @@ const NotificationBell = () => {
                           ? getUrgencia(item.product?.diasRestantes)
                           : null;
 
+                      const isDeletingThis = deletingId === item.id;
+
                       return (
                         <div
                           key={item.id}
@@ -482,6 +465,7 @@ const NotificationBell = () => {
                           className={`flex flex-col px-4 py-3.5 transition-all relative border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12
                           ${!item.isRead ? "bg-emerald-50/40 dark:bg-gray-800/40" : "hover:bg-gray-50 dark:hover:bg-gray-800/20"}
                           ${item.type === "CRITICAL_EXPIRY" ? "border-l-red-500" : "border-l-transparent"}
+                          ${isDeletingThis ? "opacity-40 pointer-events-none" : ""}
                         `}
                         >
                           <div className="flex gap-3">
@@ -528,11 +512,16 @@ const NotificationBell = () => {
 
                           <button
                             onClick={(e) => handleDelete(item.id, e)}
+                            disabled={isDeletingThis}
                             title="Apagar aviso"
                             aria-label="Apagar notificação"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {isDeletingThis ? (
+                              <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       );
