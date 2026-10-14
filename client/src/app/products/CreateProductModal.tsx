@@ -408,9 +408,77 @@ const CreateProductModal = ({
     0,
   );
 
+  // ── Lógica de Verificação se o Formulário foi Modificado (Dirty Check) ──
+  const checkIsFormDirty = (): boolean => {
+    if (!initialData) return false;
+
+    const pesoNumericoOriginal = initialData.weight || 0;
+    const unidadeOriginal =
+      initialData.unit ||
+      (pesoNumericoOriginal < 1 && pesoNumericoOriginal > 0 ? "ML_G" : "KG");
+
+    const pesoFormatadoOriginal =
+      unidadeOriginal === "ML_G"
+        ? String(Math.round(pesoNumericoOriginal * 1000))
+        : pesoNumericoOriginal.toFixed(3).replace(".", ",");
+
+    const mudouSku = formData.sku !== (initialData.sku || "");
+    const mudouNome = formData.name !== (initialData.name || "");
+    const mudouCategoria = formData.category !== (initialData.category || "");
+    const mudouPeso = formData.weight !== pesoFormatadoOriginal;
+    const mudouUnidade = unidadeMedida !== unidadeOriginal;
+    const mudouNote = formData.note !== (initialData.note || "");
+    const mudouImagem = newImageBase64 !== null || isImageRemoved;
+
+    const lotesIniciais =
+      initialData.lotes && initialData.lotes.length > 0
+        ? initialData.lotes
+        : [
+            {
+              lotNumber: initialData.lotNumber || "",
+              expirationDate: initialData.expirationDate
+                ? initialData.expirationDate.substring(0, 10)
+                : "",
+              stockQuantity: initialData.stockQuantity || 0,
+            },
+          ];
+
+    const mudouTamanhoLotes = lotes.length !== lotesIniciais.length;
+    const mudouConteudoLotes = lotes.some((lote, index) => {
+      const loteIni = lotesIniciais[index];
+      if (!loteIni) return true;
+      const numOriginal = loteIni.lotNumber || "";
+      const expOriginal = loteIni.expirationDate
+        ? loteIni.expirationDate.substring(0, 10)
+        : "";
+      const qtdOriginal = Number(loteIni.stockQuantity) || 0;
+
+      return (
+        (lote.lotNumber || "") !== numOriginal ||
+        lote.expirationDate !== expOriginal ||
+        Number(lote.stockQuantity) !== qtdOriginal
+      );
+    });
+
+    return (
+      mudouSku ||
+      mudouNome ||
+      mudouCategoria ||
+      mudouPeso ||
+      mudouUnidade ||
+      mudouNote ||
+      mudouImagem ||
+      mudouTamanhoLotes ||
+      mudouConteudoLotes
+    );
+  };
+
+  const isFormDirty = isEditing ? checkIsFormDirty() : true;
+  const isSubmitDisabled = !skuValido || (isEditing && !isFormDirty);
+
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!skuValido) return;
+    if (isSubmitDisabled) return;
 
     let pesoFinal = parseFloat(formData.weight.replace(",", ".")) || 0;
     if (unidadeMedida === "ML_G") {
@@ -902,14 +970,15 @@ const CreateProductModal = ({
               </button>
               <button
                 type="submit"
-                disabled={!skuValido}
-                className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md ${
-                  skuValido
-                    ? "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20 cursor-pointer active:scale-95"
-                    : "bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60"
+                disabled={isSubmitDisabled}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs ${
+                  isSubmitDisabled
+                    ? "bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed border border-gray-300/40 dark:border-gray-600/40 opacity-70"
+                    : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20 hover:shadow-emerald-600/30"
                 }`}
               >
-                {isEditing ? "Salvar" : "Cadastrar"}
+                <CheckCircle2 className="w-4 h-4" />
+                {isEditing ? "Salvar Alterações" : "Cadastrar Produto"}
               </button>
             </div>
           </form>
