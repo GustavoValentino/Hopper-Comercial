@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppSelector } from "@/app/redux";
 import {
   useGetNotificationsQuery,
@@ -180,7 +181,7 @@ const AvatarNotificacao = ({ item }: { item: NotificationComProduto }) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Componente principal
+// Componente Principal
 // ─────────────────────────────────────────────────────────────
 
 const NotificationBell = () => {
@@ -218,6 +219,7 @@ const NotificationBell = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Trava o scroll da página no mobile quando o BottomSheet está aberto
   useEffect(() => {
     if (isOpen) {
       const original = document.body.style.overflow;
@@ -310,6 +312,7 @@ const NotificationBell = () => {
 
   return (
     <div className="relative" ref={dropdownRef}>
+      {/* Ícone do Sininho */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         aria-expanded={isOpen}
@@ -326,212 +329,240 @@ const NotificationBell = () => {
         )}
       </button>
 
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-[1px] sm:bg-transparent sm:backdrop-blur-none"
-            onClick={() => setIsOpen(false)}
-            aria-hidden="true"
-          />
+      {/* MODAL / BOTTOM SHEET DE NOTIFICAÇÕES */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            {/* Overlay Escuro com Animação Smooth */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-xs sm:bg-transparent sm:backdrop-blur-none"
+              onClick={() => setIsOpen(false)}
+              aria-hidden="true"
+            />
 
-          <div
-            role="dialog"
-            aria-label="Notificações"
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-3xl
-              sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-3
-              sm:w-96 sm:max-h-[34rem] sm:rounded-2xl
-              bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800
-              shadow-[0_-8px_40px_rgba(0,0,0,0.12)] sm:shadow-2xl
-              flex flex-col overflow-hidden
-              origin-bottom sm:origin-top-right
-              animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-top-2 duration-200"
-          >
-            <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
-              <div className="w-9 h-1 rounded-full bg-gray-200 dark:bg-gray-700" />
-            </div>
-
-            <div className="px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 shrink-0">
-              <div>
-                <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
-                  Notificações
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {unreadCount === 0
-                    ? "Tudo em dia!"
-                    : `${unreadCount} alertas não lidos`}
-                </p>
+            {/* Painel de Notificações (BottomSheet em < sm, Dropdown em >= sm) */}
+            <motion.div
+              role="dialog"
+              aria-label="Notificações"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              /* Habilita o Gesto de Arrastar para Baixo em telas Mobile */
+              drag="y"
+              dragConstraints={{ top: 0 }}
+              dragElastic={0.2}
+              onDragEnd={(e, info) => {
+                // Se arrastar mais de 100px para baixo ou com velocidade alta, fecha
+                if (info.offset.y > 100 || info.velocity.y > 400) {
+                  setIsOpen(false);
+                }
+              }}
+              className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-3xl
+                sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-3
+                sm:w-96 sm:max-h-[34rem] sm:rounded-2xl
+                bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800
+                shadow-[0_-12px_40px_rgba(0,0,0,0.18)] sm:shadow-2xl
+                flex flex-col overflow-hidden touch-none"
+            >
+              {/* ÁREA TÁTIL / PULL HANDLE (Barra Cinza de Arraste para Mobile) */}
+              <div className="sm:hidden flex flex-col items-center justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none">
+                <div className="w-12 h-1.5 rounded-full bg-gray-300 dark:bg-gray-700 mb-1" />
               </div>
-              <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllAsRead}
-                    className="flex items-center gap-1 text-xs font-semibold text-[#006938] hover:text-[#004d29] dark:text-green-400 dark:hover:text-green-300 transition-colors cursor-pointer focus:outline-none px-2 py-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                  >
-                    <CheckCheck className="w-3.5 h-3.5" />
-                    <span className="hidden xs:inline">Marcar todas</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  aria-label="Fechar notificações"
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer sm:hidden"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/60 shrink-0 overflow-x-auto">
-              {abas.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setAba(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer whitespace-nowrap ${
-                    aba === tab.id
-                      ? "bg-[#006938] text-white shadow-sm"
-                      : "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/60"
-                  }`}
-                >
-                  {tab.label}
-                  {typeof tab.contagem === "number" && tab.contagem > 0 && (
-                    <span
-                      className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] ${
-                        aba === tab.id
-                          ? "bg-white/20 text-white"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
-                      }`}
-                    >
-                      {tab.contagem}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800/60">
-              {isLoading && (
+              {/* Cabeçalho */}
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/30 shrink-0">
                 <div>
-                  <SkeletonRow />
-                  <SkeletonRow />
-                  <SkeletonRow />
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100 text-sm">
+                    Notificações
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {unreadCount === 0
+                      ? "Tudo em dia!"
+                      : `${unreadCount} alertas não lidos`}
+                  </p>
                 </div>
-              )}
-
-              {!isLoading && notificationsFiltradas.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-2 px-6 text-center">
-                  <Bell className="w-8 h-8 opacity-30" />
-                  <span className="text-xs font-medium">
-                    {aba === "criticas"
-                      ? "Nenhum produto em vencimento crítico."
-                      : aba === "nao_lidas"
-                        ? "Nenhuma notificação não lida."
-                        : "Nenhum aviso por aqui."}
-                  </span>
-                  <span className="text-[11px] text-gray-400 dark:text-gray-500 max-w-[220px]">
-                    Assim que um produto entrar em vencimento crítico, o alerta
-                    aparece aqui.
-                  </span>
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="flex items-center gap-1 text-xs font-semibold text-[#006938] hover:text-[#004d29] dark:text-green-400 dark:hover:text-green-300 transition-colors cursor-pointer focus:outline-none px-2 py-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      <span className="hidden xs:inline">Marcar todas</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    aria-label="Fechar notificações"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {!isLoading &&
-                grupos.map((grupo) => (
-                  <div key={grupo.titulo}>
-                    <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 bg-gray-50/70 dark:bg-gray-900/40 sticky top-0">
-                      {grupo.titulo}
-                    </div>
-                    {grupo.itens.map((item) => {
-                      const urgencia =
-                        item.type === "CRITICAL_EXPIRY"
-                          ? getUrgencia(item.product?.diasRestantes)
-                          : null;
+              {/* Filtros por Abas */}
+              <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-gray-50 dark:border-gray-800/60 shrink-0 overflow-x-auto">
+                {abas.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setAba(tab.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer whitespace-nowrap ${
+                      aba === tab.id
+                        ? "bg-[#006938] text-white shadow-sm"
+                        : "bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/60"
+                    }`}
+                  >
+                    {tab.label}
+                    {typeof tab.contagem === "number" && tab.contagem > 0 && (
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] ${
+                          aba === tab.id
+                            ? "bg-white/20 text-white"
+                            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                        }`}
+                      >
+                        {tab.contagem}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
 
-                      const isDeletingThis = deletingId === item.id;
+              {/* Lista Rolável de Notificações */}
+              <div
+                className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-800/60 touch-pan-y"
+                /* Captura e isola a rolagem para evitar arrastar o modal durante o scroll da lista */
+                onPointerDownCapture={(e) => e.stopPropagation()}
+              >
+                {isLoading && (
+                  <div>
+                    <SkeletonRow />
+                    <SkeletonRow />
+                    <SkeletonRow />
+                  </div>
+                )}
 
-                      return (
-                        <div
-                          key={item.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() =>
-                            !item.isRead && handleMarkAsRead(item.id)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              if (!item.isRead) handleMarkAsRead(item.id);
+                {!isLoading && notificationsFiltradas.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-14 text-gray-400 gap-2 px-6 text-center">
+                    <Bell className="w-8 h-8 opacity-30" />
+                    <span className="text-xs font-medium">
+                      {aba === "criticas"
+                        ? "Nenhum produto em vencimento crítico."
+                        : aba === "nao_lidas"
+                          ? "Nenhuma notificação não lida."
+                          : "Nenhum aviso por aqui."}
+                    </span>
+                    <span className="text-[11px] text-gray-400 dark:text-gray-500 max-w-[220px]">
+                      Assim que um produto entrar em vencimento crítico, o
+                      alerta aparece aqui.
+                    </span>
+                  </div>
+                )}
+
+                {!isLoading &&
+                  grupos.map((grupo) => (
+                    <div key={grupo.titulo}>
+                      <div className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 bg-gray-50/70 dark:bg-gray-900/40 sticky top-0">
+                        {grupo.titulo}
+                      </div>
+                      {grupo.itens.map((item) => {
+                        const urgencia =
+                          item.type === "CRITICAL_EXPIRY"
+                            ? getUrgencia(item.product?.diasRestantes)
+                            : null;
+
+                        const isDeletingThis = deletingId === item.id;
+
+                        return (
+                          <div
+                            key={item.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              !item.isRead && handleMarkAsRead(item.id)
                             }
-                          }}
-                          className={`flex flex-col px-4 py-3.5 transition-all relative border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12
-                          ${!item.isRead ? "bg-emerald-50/40 dark:bg-gray-800/40" : "hover:bg-gray-50 dark:hover:bg-gray-800/20"}
-                          ${item.type === "CRITICAL_EXPIRY" ? "border-l-red-500" : "border-l-transparent"}
-                          ${isDeletingThis ? "opacity-40 pointer-events-none" : ""}
-                        `}
-                        >
-                          <div className="flex gap-3">
-                            <AvatarNotificacao item={item} />
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (!item.isRead) handleMarkAsRead(item.id);
+                              }
+                            }}
+                            className={`flex flex-col px-4 py-3.5 transition-all relative border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12
+                            ${!item.isRead ? "bg-emerald-50/40 dark:bg-gray-800/40" : "hover:bg-gray-50 dark:hover:bg-gray-800/20"}
+                            ${item.type === "CRITICAL_EXPIRY" ? "border-l-red-500" : "border-l-transparent"}
+                            ${isDeletingThis ? "opacity-40 pointer-events-none" : ""}
+                          `}
+                          >
+                            <div className="flex gap-3">
+                              <AvatarNotificacao item={item} />
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <p
-                                  className={`text-xs sm:text-sm leading-relaxed text-gray-700 dark:text-gray-300 ${
-                                    !item.isRead
-                                      ? "font-medium text-gray-900 dark:text-gray-100"
-                                      : ""
-                                  }`}
-                                >
-                                  {item.message}
-                                </p>
-                                {!item.isRead && (
-                                  <span className="w-2 h-2 rounded-full bg-[#006938] shrink-0 mt-1.5" />
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
-                                  <Clock className="w-3 h-3" />
-                                  <span>
-                                    {formatRelativeTime(item.createdAt)}
-                                  </span>
-                                </div>
-                                {urgencia && (
-                                  <span
-                                    className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p
+                                    className={`text-xs sm:text-sm leading-relaxed text-gray-700 dark:text-gray-300 ${
+                                      !item.isRead
+                                        ? "font-medium text-gray-900 dark:text-gray-100"
+                                        : ""
+                                    }`}
                                   >
-                                    {urgencia.label}
-                                  </span>
-                                )}
-                                {item.product?.section && (
-                                  <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500">
-                                    · {item.product.section}
-                                  </span>
-                                )}
+                                    {item.message}
+                                  </p>
+                                  {!item.isRead && (
+                                    <span className="w-2 h-2 rounded-full bg-[#006938] shrink-0 mt-1.5" />
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                  <div className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+                                    <Clock className="w-3 h-3" />
+                                    <span>
+                                      {formatRelativeTime(item.createdAt)}
+                                    </span>
+                                  </div>
+                                  {urgencia && (
+                                    <span
+                                      className={`text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md ${urgencia.classes}`}
+                                    >
+                                      {urgencia.label}
+                                    </span>
+                                  )}
+                                  {item.product?.section && (
+                                    <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500">
+                                      · {item.product.section}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <button
-                            onClick={(e) => handleDelete(item.id, e)}
-                            disabled={isDeletingThis}
-                            title="Apagar aviso"
-                            aria-label="Apagar notificação"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed"
-                          >
-                            {isDeletingThis ? (
-                              <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-            </div>
-          </div>
-        </>
-      )}
+                            <button
+                              onClick={(e) => handleDelete(item.id, e)}
+                              disabled={isDeletingThis}
+                              title="Apagar aviso"
+                              aria-label="Apagar notificação"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 disabled:cursor-not-allowed"
+                            >
+                              {isDeletingThis ? (
+                                <Loader2 className="w-4 h-4 text-red-500 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
