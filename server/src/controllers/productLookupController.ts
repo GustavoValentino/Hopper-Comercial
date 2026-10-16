@@ -206,22 +206,38 @@ export const lookupProductByEan = async (
   try {
     const { ean } = req.params;
 
-    if (!ean || ean.length < 8) {
-      res.status(400).json({ message: "Código EAN inválido." });
+    if (!ean) {
+      res.status(400).json({ message: "Código não fornecido." });
       return;
     }
 
-    // 1. Verifica o cache primeiro
-    const emCache = obterDoCache(ean);
+    const apenasNumeros = ean.replace(/\D/g, "");
+
+    // ── 0. Detecção de Código Interno / PLU (Balança / Padaria / Açougue / Hortifrúti) ──
+    // Códigos curtos (1 a 6 dígitos) ou etiquetas de balança iniciadas por '2' são locais.
+    const ehCodigoInterno =
+      apenasNumeros.length < 13 || apenasNumeros.startsWith("2");
+
+    if (ehCodigoInterno) {
+      res.status(404).json({
+        message:
+          "Código interno / PLU de balança. Cadastro deve ser feito manualmente.",
+        isPlu: true,
+      });
+      return;
+    }
+
+    // 1. Verifica o cache primeiro para EAN Comercial
+    const emCache = obterDoCache(apenasNumeros);
     if (emCache) {
       res.status(200).json(emCache);
       return;
     }
 
-    // 2. Consultas em paralelo (OSCBR + Open Food Facts)
+    // 2. Consultas em paralelo para EANs comerciais de fábrica (OSCBR + Open Food Facts)
     const [buscaOscbr, dadosOff] = await Promise.all([
-      buscarNaOscbr(ean),
-      buscarNoOpenFoodFacts(ean),
+      buscarNaOscbr(apenasNumeros),
+      buscarNoOpenFoodFacts(apenasNumeros),
     ]);
 
     let resultado = buscaOscbr.resultado;
@@ -266,7 +282,7 @@ export const lookupProductByEan = async (
     };
 
     // 4. Salva no cache para próximas consultas do mesmo EAN
-    salvarNoCache(ean, resposta);
+    salvarNoCache(apenasNumeros, resposta);
 
     res.status(200).json(resposta);
   } catch (error: any) {

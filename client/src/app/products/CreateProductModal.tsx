@@ -12,6 +12,7 @@ import AvatarEditor from "react-avatar-editor";
 import Header from "@/app/(components)/Header";
 import {
   validarEAN13,
+  validarCodigoProduto, // 👈 Importado
   formatarQuantidadeBR,
   formatarEntradaPeso,
 } from "@/lib/utils";
@@ -48,6 +49,7 @@ export type LoteFormData = {
 type ProductFormData = {
   productId?: string;
   sku: string;
+  codeType?: "EAN" | "PLU"; // 👈 Adicionado
   name: string;
   category: string;
   weight: number;
@@ -102,6 +104,7 @@ const CreateProductModal = ({
   initialData,
 }: CreateProductModalProps) => {
   const [unidadeMedida, setUnidadeMedida] = useState<"KG" | "ML_G">("KG");
+  const [tipoCodigo, setTipoCodigo] = useState<"EAN" | "PLU">("EAN"); // 👈 Estado do Modo de Código
 
   const [formData, setFormData] = useState({
     productId: v4(),
@@ -156,9 +159,15 @@ const CreateProductModal = ({
           ? String(Math.round(pesoNumerico * 1000))
           : pesoNumerico.toFixed(3).replace(".", ",");
 
+      const rawSku = initialData.sku || "";
+      // Detecta se é PLU interno (comprimento < 13 ou começa com 2) ou EAN Comercial
+      const ePlu = rawSku.length < 13 || rawSku.startsWith("2");
+      const tipo = initialData.codeType || (ePlu ? "PLU" : "EAN");
+      setTipoCodigo(tipo);
+
       setFormData({
         productId: initialData.productId || v4(),
-        sku: initialData.sku || "",
+        sku: rawSku,
         name: initialData.name || "",
         category: initialData.category || "",
         weight: pesoFormatado,
@@ -190,12 +199,13 @@ const CreateProductModal = ({
         ]);
       }
 
-      const valido = validarEAN13(initialData.sku || "");
+      const valido = validarCodigoProduto(rawSku, tipo);
       setSkuValido(valido);
-      setSkuErro(valido ? null : "Código EAN inválido na base de dados");
+      setSkuErro(valido ? null : "Código de produto inválido na base de dados");
       setImagePreview(initialData.imageUrl || null);
       setNewImageBase64(null);
     } else {
+      setTipoCodigo("EAN");
       setUnidadeMedida("KG");
       setFormData({
         productId: v4(),
@@ -244,6 +254,9 @@ const CreateProductModal = ({
     const buscarProdutoExterno = async () => {
       if (isEditing) return;
 
+      // Se for código interno PLU, ignora a busca em APIs externas!
+      if (tipoCodigo === "PLU") return;
+
       if (formData.sku.length === 13 && validarEAN13(formData.sku)) {
         try {
           const resultado = await triggerLookup(formData.sku).unwrap();
@@ -283,33 +296,60 @@ const CreateProductModal = ({
     };
 
     buscarProdutoExterno();
-  }, [formData.sku, triggerLookup, isEditing]);
+  }, [formData.sku, triggerLookup, isEditing, tipoCodigo]);
 
-  const processarEValidarSku = (codigoRaw: string) => {
-    const apenasNumeros = codigoRaw.replace(/\D/g, "").slice(0, 13);
+  const processarEValidarSku = (codigoRaw: string, modo = tipoCodigo) => {
+    const maxLen = modo === "EAN" ? 13 : 13;
+    const apenasNumeros = codigoRaw.replace(/\D/g, "").slice(0, maxLen);
     setFormData((prev) => ({ ...prev, sku: apenasNumeros }));
 
     if (apenasNumeros.length === 0) {
       setSkuErro(null);
       setSkuValido(false);
-    } else if (apenasNumeros.length < 13) {
-      setSkuErro(`Digitando... (${apenasNumeros.length}/13)`);
-      setSkuValido(false);
+      return;
+    }
+
+    if (modo === "EAN") {
+      if (apenasNumeros.length < 13) {
+        setSkuErro(`Digitando... (${apenasNumeros.length}/13)`);
+        setSkuValido(false);
+      } else {
+        const ehValido = validarEAN13(apenasNumeros);
+        if (ehValido) {
+          setSkuErro(null);
+          setSkuValido(true);
+        } else {
+          setSkuErro("Dígito verificador EAN-13 inválido.");
+          setSkuValido(false);
+        }
+      }
     } else {
-      const ehValido = validarEAN13(apenasNumeros);
+      // Modo PLU / Interno (Padaria, Açougue, Hortifrúti, Balança)
+      const ehValido = validarCodigoProduto(apenasNumeros, "PLU");
       if (ehValido) {
         setSkuErro(null);
         setSkuValido(true);
       } else {
-        setSkuErro("Dígito verificador inválido. Verifique o código.");
+        setSkuErro(
+          "Código PLU inválido. Digite de 1 a 6 dígitos (ex: 57089) ou barcode de balança.",
+        );
         setSkuValido(false);
       }
     }
   };
 
+  const handleTrocarModoCodigo = (novoModo: "EAN" | "PLU") => {
+    setTipoCodigo(novoModo);
+    processarEValidarSku(formData.sku, novoModo);
+  };
+
   const handleLeituraCameraSucesso = (codigoLido: string) => {
     setIsCameraAberta(false);
-    processarEValidarSku(codigoLido);
+    // Se for lido via câmera e começar com '2' ou ter menos de 13 dígitos, chaveia pra PLU
+    const ehPlu = codigoLido.length < 13 || codigoLido.startsWith("2");
+    const novoModo = ehPlu ? "PLU" : "EAN";
+    setTipoCodigo(novoModo);
+    processarEValidarSku(codigoLido, novoModo);
   };
 
   const handleCancelarRecorte = () => {
@@ -423,6 +463,7 @@ const CreateProductModal = ({
         : pesoNumericoOriginal.toFixed(3).replace(".", ",");
 
     const mudouSku = formData.sku !== (initialData.sku || "");
+    const mudouTipoCodigo = tipoCodigo !== (initialData.codeType || "EAN");
     const mudouNome = formData.name !== (initialData.name || "");
     const mudouCategoria = formData.category !== (initialData.category || "");
     const mudouPeso = formData.weight !== pesoFormatadoOriginal;
@@ -462,6 +503,7 @@ const CreateProductModal = ({
 
     return (
       mudouSku ||
+      mudouTipoCodigo ||
       mudouNome ||
       mudouCategoria ||
       mudouPeso ||
@@ -487,6 +529,7 @@ const CreateProductModal = ({
 
     const dadosParaEnviar: ProductFormData = {
       ...formData,
+      codeType: tipoCodigo, // 👈 Enviando o tipo selecionado
       weight: pesoFinal,
       unit: unidadeMedida,
       section: formData.category.trim(),
@@ -623,7 +666,7 @@ const CreateProductModal = ({
                         setIsImageMenuOpen(false);
                         fileInputRef.current?.click();
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer group/opt"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer group/opt"
                     >
                       <div className="p-1 rounded-md bg-blue-50 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 group-hover/opt:scale-110 transition-transform">
                         <FolderOpen className="w-3.5 h-3.5" />
@@ -636,30 +679,62 @@ const CreateProductModal = ({
 
               {/* SKU e Nome */}
               <div className="sm:col-span-9 space-y-3">
-                {/* Código de Barras */}
+                {/* Seletor do Tipo de Código e Campo SKU */}
                 <div>
-                  <div className="flex justify-between items-center mb-1">
+                  <div className="flex justify-between items-center mb-1.5">
                     <label htmlFor="sku" className={labelCssStyles + " mb-0"}>
                       <span className="flex items-center gap-1">
                         <BarcodeIcon className="w-3.5 h-3.5 text-emerald-500" />{" "}
-                        Código de Barras (EAN)
+                        Código de Identificação
                       </span>
                     </label>
+
                     {skuValido && (
                       <span className="text-[9px] uppercase font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded">
                         <CheckCircle2 className="w-3 h-3" /> Válido
                       </span>
                     )}
                   </div>
+
+                  {/* Segmented Control / Alternador de Modo */}
+                  <div className="flex p-0.5 bg-gray-200/60 dark:bg-gray-800/80 rounded-lg mb-2 text-[10px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => handleTrocarModoCodigo("EAN")}
+                      className={`flex-1 py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        tipoCodigo === "EAN"
+                          ? "bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      <span>🏷️ EAN Comercial</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleTrocarModoCodigo("PLU")}
+                      className={`flex-1 py-1 px-2 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        tipoCodigo === "PLU"
+                          ? "bg-white dark:bg-gray-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      <span>⚖️ Interno/Balança</span>
+                    </button>
+                  </div>
+
                   <div className="flex gap-2">
                     <input
                       type="text"
                       name="sku"
-                      placeholder="Bipe ou digite o código..."
+                      placeholder={
+                        tipoCodigo === "EAN"
+                          ? "Bipe ou digite o código de barras.."
+                          : "Ex: 57089 (Pão), 9620 (Açougue)"
+                      }
                       onChange={handleChange}
                       value={formData.sku}
                       className={`${inputCssStyles} font-mono tracking-wider flex-1 ${
-                        skuErro && formData.sku.length === 13
+                        skuErro && formData.sku.length > 0
                           ? "border-rose-500 focus:ring-rose-500"
                           : ""
                       } ${skuValido ? "border-emerald-500 bg-emerald-50/10 dark:bg-emerald-950/10" : ""}`}
@@ -674,14 +749,20 @@ const CreateProductModal = ({
                       <Barcode className="w-4 h-4" />
                     </button>
                   </div>
+
                   {skuErro && (
                     <p
-                      className={`text-[10px] mt-1 flex items-center gap-1 ${formData.sku.length === 13 ? "text-rose-500 font-semibold" : "text-gray-400"}`}
+                      className={`text-[10px] mt-1 flex items-center gap-1 ${
+                        skuErro.includes("inválido")
+                          ? "text-rose-500 font-semibold"
+                          : "text-gray-400"
+                      }`}
                     >
                       {skuErro}
                     </p>
                   )}
-                  {isSearchingApi && (
+
+                  {isSearchingApi && tipoCodigo === "EAN" && (
                     <p className="text-[10px] mt-1 text-blue-500 font-medium animate-pulse flex items-center gap-1">
                       <Sparkles className="w-3 h-3" /> Consultando bases
                       oficiais...
@@ -700,7 +781,11 @@ const CreateProductModal = ({
                   <input
                     type="text"
                     name="name"
-                    placeholder="Ex: Arroz Branco Camil Tipo 1 5kg"
+                    placeholder={
+                      tipoCodigo === "PLU"
+                        ? "Ex: Pão Francês 50g / Peito de Frango"
+                        : "Ex: Arroz Branco Camil Tipo 1  5kg"
+                    }
                     onChange={handleChange}
                     value={formData.name}
                     className={inputCssStyles}
