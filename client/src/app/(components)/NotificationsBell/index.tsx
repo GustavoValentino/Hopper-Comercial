@@ -7,6 +7,7 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppSelector } from "@/app/redux";
 import {
@@ -185,6 +186,7 @@ const AvatarNotificacao = ({ item }: { item: NotificationComProduto }) => {
 // ─────────────────────────────────────────────────────────────
 
 const NotificationBell = () => {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [aba, setAba] = useState<FiltroAba>("todas");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -256,6 +258,19 @@ const NotificationBell = () => {
     },
     [markAsRead],
   );
+
+  // Redireciona o usuário para a tela de produtos e destaca o card do produto crítico
+  const handleNotificationClick = async (item: NotificationComProduto) => {
+    if (!item.isRead) {
+      await handleMarkAsRead(item.id);
+    }
+
+    setIsOpen(false);
+
+    if (item.type === "CRITICAL_EXPIRY" && item.product?.name) {
+      router.push(`/products?search=${encodeURIComponent(item.product.name)}`);
+    }
+  };
 
   const handleMarkAllAsRead = useCallback(async () => {
     try {
@@ -483,13 +498,11 @@ const NotificationBell = () => {
                             key={item.id}
                             role="button"
                             tabIndex={0}
-                            onClick={() =>
-                              !item.isRead && handleMarkAsRead(item.id)
-                            }
+                            onClick={() => handleNotificationClick(item)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
                                 e.preventDefault();
-                                if (!item.isRead) handleMarkAsRead(item.id);
+                                handleNotificationClick(item);
                               }
                             }}
                             className={`flex flex-col px-4 py-3.5 transition-all relative border-l-4 cursor-pointer focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-800/40 pr-12

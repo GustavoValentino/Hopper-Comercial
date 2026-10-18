@@ -48,6 +48,9 @@ const Products = () => {
   const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(8);
+  const [highlightedProductId, setHighlightedProductId] = useState<
+    string | null
+  >(null);
   const [lightboxProduct, setLightboxProduct] = useState<{
     imageUrl: string;
     name: string;
@@ -58,15 +61,42 @@ const Products = () => {
   const { data: allProducts, isLoading, isError } = useGetProductsQuery();
   const [createProduct] = useCreateProductMutation();
 
-  // Efeito para tratar o parâmetro da URL de forma amigável
+  // Efeito para tratar a navegação vinda da Notificação
   useEffect(() => {
-    if (searchFromUrl && allProducts) {
+    if (searchFromUrl && allProducts && allProducts.length > 0) {
+      // Procura por ID ou por Nome do produto
       const matchedProduct = allProducts.find(
-        (p) => p.productId === searchFromUrl,
+        (p) => p.productId === searchFromUrl || p.name === searchFromUrl,
       );
 
       if (matchedProduct) {
         setSearchTerm(matchedProduct.name);
+        setHighlightedProductId(matchedProduct.productId);
+
+        // Garante que o número de itens visíveis expanda até encontrar o produto
+        const indexNaLista = allProducts.findIndex(
+          (p) => p.productId === matchedProduct.productId,
+        );
+        if (indexNaLista >= 8) {
+          setVisibleCount(indexNaLista + 4);
+        }
+
+        // Rola a tela até o card do produto após a renderização
+        setTimeout(() => {
+          const el = document.getElementById(
+            `product-card-${matchedProduct.productId}`,
+          );
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 300);
+
+        // Remove o efeito de destaque após 4 segundos
+        const timer = setTimeout(() => {
+          setHighlightedProductId(null);
+        }, 4000);
+
+        return () => clearTimeout(timer);
       } else {
         setSearchTerm(searchFromUrl);
       }
@@ -100,7 +130,7 @@ const Products = () => {
       const matchesSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (searchFromUrl && p.productId === searchFromUrl);
+        p.productId === searchFromUrl;
 
       const matchesCategory =
         selectedCategory === "TODAS" || p.category === selectedCategory;
@@ -110,8 +140,10 @@ const Products = () => {
   }, [allProducts, searchTerm, selectedCategory, searchFromUrl]);
 
   useEffect(() => {
-    setVisibleCount(8);
-  }, [searchTerm, selectedCategory]);
+    if (!searchFromUrl) {
+      setVisibleCount(8);
+    }
+  }, [searchTerm, selectedCategory, searchFromUrl]);
 
   const handleCreateProduct = async (productData: any) => {
     try {
@@ -187,7 +219,7 @@ const Products = () => {
               )}
             </div>
 
-            {/* Botão de Filtro com Ícone Discreto e Dropdown */}
+            {/* Botão de Filtro com Dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
@@ -318,10 +350,17 @@ const Products = () => {
                 }
               }
 
+              const isHighlighted = highlightedProductId === product.productId;
+
               return (
                 <div
+                  id={`product-card-${product.productId}`}
                   key={product.productId}
-                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.01)] border border-gray-100/50 dark:border-gray-700/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 flex flex-col justify-between`}
+                  className={`bg-white dark:bg-gray-800 border-t-4 ${corBordaSuperior} rounded-xl p-5 border border-gray-100/50 dark:border-gray-700/40 transition-all duration-500 flex flex-col justify-between ${
+                    isHighlighted
+                      ? "ring-2 ring-emerald-500 dark:ring-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.3)] scale-[1.02]"
+                      : "shadow-[0_4px_20px_rgb(0,0,0,0.01)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
+                  }`}
                 >
                   <div className="flex flex-col h-full">
                     <div className="flex items-center justify-between gap-2 mb-3">
